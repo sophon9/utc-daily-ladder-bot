@@ -1,9 +1,12 @@
 #!/bin/bash
-# Run script to start BOTH EMA Trading Bot backend and frontend (background mode)
+# Run script to start BOTH Daily Ladder Bot backend and frontend
 
-cd "$(dirname "$0")"
+set -euo pipefail
 
-echo "Starting EMA Trading Bot (backend + frontend)..."
+PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+cd "$PROJECT_ROOT"
+
+echo "Starting Daily Ladder Bot (backend + frontend)..."
 echo "==============================================="
 echo ""
 
@@ -19,7 +22,12 @@ echo ""
 
 # Start frontend
 if [ -x "./run_frontend.sh" ]; then
-  ./run_frontend.sh
+  if ! ./run_frontend.sh; then
+    echo ""
+    echo "Frontend failed to start. Stopping backend to avoid a partial launch."
+    ./stop_backend.sh || true
+    exit 1
+  fi
 else
   echo "Error: ./run_frontend.sh not found or not executable"
   exit 1
@@ -33,4 +41,3 @@ echo ""
 echo "To stop them:"
 echo "  ./stop_backend.sh"
 echo "  ./stop_frontend.sh"
-

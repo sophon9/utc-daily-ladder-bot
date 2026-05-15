@@ -1,7 +1,7 @@
 // Custom hooks for bot API and WebSocket
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { BotStatus, PositionSet, BotConfig, WSMessage } from '../types';
+import { BotStatus, PositionSet, BotConfig, EquityHistoryResponse, WSMessage } from '../types';
 
 const API_BASE = '/api';
 const WS_URL = window.location.protocol === 'https:' ? 'wss://' + window.location.host + '/ws' : 'ws://' + window.location.host + '/ws';
@@ -167,6 +167,11 @@ export function useAPI() {
     return response.json();
   };
 
+  const getEquityHistory = async (limit: number = 240): Promise<EquityHistoryResponse> => {
+    const response = await fetch(`${API_BASE}/equity/history?limit=${limit}`);
+    return response.json();
+  };
+
   return {
     startBot,
     stopBot,
@@ -176,5 +181,6 @@ export function useAPI() {
     removePosition,
     getConfig,
     updateConfig,
+    getEquityHistory,
   };
 }

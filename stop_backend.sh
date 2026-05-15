@@ -1,14 +1,16 @@
 #!/bin/bash
-# Stop script for EMA Trading Bot backend
+# Stop script for Daily Ladder Bot backend
 # NOTE: Does NOT call /api/stop so the bot's running state is preserved.
 #       Use the UI "Stop" button to intentionally stop trading between restarts.
 
-cd "$(dirname "$0")"
+set -euo pipefail
 
-echo "Stopping EMA Trading Bot Backend..."
+PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+
+echo "Stopping Daily Ladder Bot Backend..."
 
 # Kill by PID file if available
-PID_FILE="logs/backend.pid"
+PID_FILE="$PROJECT_ROOT/logs/backend.pid"
 if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE")
     if kill -0 "$PID" 2>/dev/null; then

@@ -232,7 +232,7 @@ class OrderManager:
         ).strip("_")
         return normalized or "order"
 
-    def generate_client_order_id(self, prefix: str = "ema") -> str:
+    def generate_client_order_id(self, prefix: str = "ema", reserved_suffix_length: int = 0) -> str:
         """Generate a bot-owned client order ID for idempotency and filtering."""
         normalized_prefix = self._normalize_order_prefix(prefix)
         if normalized_prefix.startswith(f"{self.BOT_ORDER_PREFIX}_"):
@@ -246,7 +246,9 @@ class OrderManager:
         random_part = uuid.uuid4().hex[:4]
         suffix = f"{timestamp}{sequence}{random_part}"
 
-        available_prefix_length = self.MAX_CLIENT_ORDER_ID_LENGTH - len(suffix) - 1
+        available_prefix_length = self.MAX_CLIENT_ORDER_ID_LENGTH - len(suffix) - 1 - reserved_suffix_length
+        if available_prefix_length <= 0:
+            raise ValueError("reserved_suffix_length leaves no room for orderLinkId prefix")
         base_prefix = base_prefix[:available_prefix_length].rstrip("_")
         return f"{base_prefix}_{suffix}"
 
@@ -649,7 +651,8 @@ class OrderManager:
             Leg object or None
         """
         bybit_side = "Sell" if side == "short" else "Buy"
-        client_order_id = self.generate_client_order_id("opt")
+        # Reserve room for retry suffixes like "_1" so every attempt stays Bybit-safe.
+        client_order_id = self.generate_client_order_id("opt", reserved_suffix_length=2)
         normalized_contracts = self._normalize_option_contracts(float(contracts), option_instrument)
 
         leg = Leg(

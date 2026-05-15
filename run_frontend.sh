@@ -1,19 +1,21 @@
 #!/bin/bash
-# Run script for EMA Trading Bot frontend (background mode)
+# Run script for Daily Ladder Bot frontend (background mode)
 
-cd "$(dirname "$0")"
+set -euo pipefail
+
+PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 
 # Check if node_modules exists
-if [ ! -d "frontend/node_modules" ]; then
+if [ ! -d "$PROJECT_ROOT/frontend/node_modules" ]; then
     echo "Error: node_modules not found!"
     echo "Please run: cd frontend && npm install"
     exit 1
 fi
 
-mkdir -p logs
+mkdir -p "$PROJECT_ROOT/logs"
 
-PID_FILE="logs/frontend.pid"
-LOG_FILE="logs/frontend.log"
+PID_FILE="$PROJECT_ROOT/logs/frontend.pid"
+LOG_FILE="$PROJECT_ROOT/logs/frontend.log"
 
 # Check if already running
 if [ -f "$PID_FILE" ]; then
@@ -29,7 +31,7 @@ fi
 # Get local IP address
 LOCAL_IP=$(hostname -I | awk '{print $1}')
 
-echo "Starting EMA Trading Bot Frontend (background)..."
+echo "Starting Daily Ladder Bot Frontend (background)..."
 echo "====================================="
 echo ""
 echo "Access URLs:"
@@ -44,8 +46,23 @@ echo "Logs:    $LOG_FILE"
 echo "To stop: ./stop_frontend.sh"
 echo ""
 
-cd frontend
-nohup npm run dev >> "../$LOG_FILE" 2>&1 &
-echo $! > "../$PID_FILE"
+nohup setsid npm --prefix "$PROJECT_ROOT/frontend" run dev -- --host 0.0.0.0 --port 3010 >> "$LOG_FILE" 2>&1 < /dev/null &
+echo $! > "$PID_FILE"
 
-echo "Frontend started (PID $(cat ../$PID_FILE))"
+FRONTEND_PID=$(cat "$PID_FILE")
+sleep 3
+
+if ! kill -0 "$FRONTEND_PID" 2>/dev/null; then
+    echo "Frontend failed to stay running. Recent log output:"
+    tail -n 50 "$LOG_FILE" 2>/dev/null || true
+    rm -f "$PID_FILE"
+    exit 1
+fi
+
+if ! curl -fsS "http://127.0.0.1:3010/" >/dev/null 2>&1; then
+    echo "Frontend process started but HTTP endpoint did not become ready. Recent log output:"
+    tail -n 50 "$LOG_FILE" 2>/dev/null || true
+    exit 1
+fi
+
+echo "Frontend started (PID $FRONTEND_PID)"

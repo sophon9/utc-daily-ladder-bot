@@ -1,12 +1,14 @@
 #!/bin/bash
-# Stop script for EMA Trading Bot frontend
+# Stop script for Daily Ladder Bot frontend
 
-cd "$(dirname "$0")"
+set -euo pipefail
 
-echo "Stopping EMA Trading Bot Frontend..."
+PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+
+echo "Stopping Daily Ladder Bot Frontend..."
 
 # Kill by PID file if available
-PID_FILE="logs/frontend.pid"
+PID_FILE="$PROJECT_ROOT/logs/frontend.pid"
 if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE")
     if kill -0 "$PID" 2>/dev/null; then

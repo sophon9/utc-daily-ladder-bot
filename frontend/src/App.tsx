@@ -12,55 +12,57 @@ function App() {
   const { status, positions, connected } = useWebSocket();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
+  const tabs: Array<{ id: TabType; label: string; badge?: string | number | null }> = [
+    { id: 'overview', label: 'Mission Control' },
+    { id: 'positions', label: 'Entries', badge: status && status.active_position_sets > 0 ? status.active_position_sets : null },
+    { id: 'config', label: 'Strategy Setup' },
+    { id: 'logs', label: 'Execution Log' },
+  ];
+
   return (
-    <div className="app">
-      <header className="header">
-        <h1>Daily Ladder Bot</h1>
-        <div className="connection-status">
-          <span className={`status-dot ${connected ? 'connected' : ''}`}></span>
-          <span>{connected ? 'Connected' : 'Disconnected'}</span>
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="brand-block">
+          <div className="brand-mark">DL</div>
+          <div>
+            <div className="brand-kicker">Bybit Ladder Strategy</div>
+            <h1>Daily Ladder Bot</h1>
+          </div>
+        </div>
+
+        <div className="topbar-meta">
+          <div className={`connection-pill ${connected ? 'online' : 'offline'}`}>
+            <span className="status-dot"></span>
+            {connected ? 'Realtime feed connected' : 'Realtime feed reconnecting'}
+          </div>
+          {status && (
+            <div className="account-pill">
+              {status.dry_run ? 'Dry run mode' : status.testnet ? 'Testnet execution' : 'Mainnet execution'}
+            </div>
+          )}
         </div>
       </header>
 
-      <main className="main">
-        <div className="tabs">
-          <button
-            className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            Overview
-          </button>
-          <button
-            className={`tab ${activeTab === 'positions' ? 'active' : ''}`}
-            onClick={() => setActiveTab('positions')}
-          >
-            Positions
-            {status && status.active_position_sets > 0 && (
-              <span style={{ marginLeft: '8px', opacity: 0.7 }}>
-                ({status.active_position_sets})
-              </span>
-            )}
-          </button>
-          <button
-            className={`tab ${activeTab === 'config' ? 'active' : ''}`}
-            onClick={() => setActiveTab('config')}
-          >
-            Config
-          </button>
-          <button
-            className={`tab ${activeTab === 'logs' ? 'active' : ''}`}
-            onClick={() => setActiveTab('logs')}
-          >
-            Logs
-          </button>
-        </div>
+      <main className="workspace">
+        <nav className="tabs tabs-modern">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              className={`tab ${activeTab === tab.id ? 'active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              <span>{tab.label}</span>
+              {tab.badge ? <span className="tab-badge">{tab.badge}</span> : null}
+            </button>
+          ))}
+        </nav>
 
-        <div className="tab-content">
+        <section className="tab-stage">
           {activeTab === 'overview' && <Overview status={status} />}
           {activeTab === 'positions' && <Positions positions={positions} />}
           {activeTab === 'config' && <Config />}
           {activeTab === 'logs' && <Logs />}
-        </div>
+        </section>
       </main>
     </div>
   );

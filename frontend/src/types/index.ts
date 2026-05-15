@@ -102,3 +102,15 @@ export interface WSMessage {
   timestamp: string;
   data: any;
 }
+
+export interface EquityPoint {
+  timestamp: string;
+  equity: number;
+}
+
+export interface EquityHistoryResponse {
+  points: EquityPoint[];
+  count: number;
+  available: boolean;
+  dry_run: boolean;
+}

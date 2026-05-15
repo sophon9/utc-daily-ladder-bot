@@ -1,9 +1,11 @@
 #!/bin/bash
-# Stop all EMA Trading Bot services
+# Stop all Daily Ladder Bot services
 
-SCRIPT_DIR="$(dirname "$0")"
+set -euo pipefail
 
-echo "Stopping EMA Trading Bot (all services)..."
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+echo "Stopping Daily Ladder Bot (all services)..."
 echo "==========================================="
 echo ""
 

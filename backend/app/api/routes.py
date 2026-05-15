@@ -295,6 +295,25 @@ async def get_equity(bot: TradingBot = Depends(get_bot)):
     }
 
 
+@router.get("/equity/history")
+async def get_equity_history(limit: int = 240, bot: TradingBot = Depends(get_bot)):
+    """Get recent equity history points for performance tracking."""
+    limit = max(20, min(limit, 2000))
+    points = bot.equity_history.get_points(limit=limit)
+    return {
+        "points": [
+            {
+                "timestamp": point.timestamp,
+                "equity": point.equity,
+            }
+            for point in points
+        ],
+        "count": len(points),
+        "available": len(points) > 0,
+        "dry_run": bot.dry_run,
+    }
+
+
 @router.get("/logs")
 async def get_logs(lines: int = 200):
     """Get recent bot logs."""

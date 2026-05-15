@@ -17,136 +17,120 @@ interface PriceChartProps {
 
 export default function PriceChart({ data, loading }: PriceChartProps) {
   if (loading) {
-    return (
-      <div className="card" style={{ minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div className="text-muted">Loading chart...</div>
-      </div>
-    );
+    return <div className="panel panel-empty">Loading price context...</div>;
   }
 
-  if (!data || !data.candles || data.candles.length === 0) {
-    return (
-      <div className="card" style={{ minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div className="text-muted">No chart data available</div>
-      </div>
-    );
+  if (!data || data.candles.length === 0) {
+    return <div className="panel panel-empty">No chart data available.</div>;
   }
 
   const { candles, reference_values, reference_label } = data;
-  const width = 800;
-  const height = 300;
-  const padding = { top: 20, right: 80, bottom: 40, left: 60 };
+  const width = 760;
+  const height = 320;
+  const padding = { top: 18, right: 18, bottom: 28, left: 18 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 
-  const prices = candles.map((c) => c.close);
+  const prices = candles.map((candle) => candle.close);
   const allValues = [...prices, ...reference_values];
   const minPrice = Math.min(...allValues);
   const maxPrice = Math.max(...allValues);
-  const priceRange = Math.max(maxPrice - minPrice, 1);
-  const pricePadding = priceRange * 0.1;
+  const range = Math.max(maxPrice - minPrice, 1);
+  const yPadding = range * 0.12;
 
   const xScale = (index: number) => padding.left + (index / Math.max(candles.length - 1, 1)) * chartWidth;
-  const yScale = (price: number) => padding.top + ((maxPrice + pricePadding - price) / (priceRange + 2 * pricePadding)) * chartHeight;
+  const yScale = (price: number) => padding.top + ((maxPrice + yPadding - price) / (range + 2 * yPadding)) * chartHeight;
 
   const pricePath = candles.map((candle, index) => {
     const x = xScale(index);
     const y = yScale(candle.close);
-    return index === 0 ? `M ${x} ${y}` : `L ${x} ${y}`;
+    return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
   }).join(' ');
 
-  let referencePath = '';
-  if (reference_values.length > 0) {
-    referencePath = reference_values.map((value, index) => {
-      const x = xScale(index);
-      const y = yScale(value);
-      return index === 0 ? `M ${x} ${y}` : `L ${x} ${y}`;
-    }).join(' ');
-  }
+  const referencePath = reference_values.map((value, index) => {
+    const x = xScale(index);
+    const y = yScale(value);
+    return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
+  }).join(' ');
 
   const currentPrice = prices[prices.length - 1];
   const currentReference = reference_values[reference_values.length - 1] || 0;
-  const drawdownPct = currentReference > 0
-    ? ((currentReference - currentPrice) / currentReference) * 100
-    : 0;
+  const drawdownPct = currentReference > 0 ? ((currentReference - currentPrice) / currentReference) * 100 : 0;
 
-  const numTicks = 5;
-  const yTicks = Array.from({ length: numTicks }, (_, i) => {
-    const price = minPrice - pricePadding + (priceRange + 2 * pricePadding) * (i / (numTicks - 1));
-    return price;
-  }).reverse();
+  const timeMarkers = [
+    candles[0],
+    candles[Math.floor(candles.length / 2)],
+    candles[candles.length - 1],
+  ];
 
   return (
-    <div className="card">
-      <h2 className="card-title">Price vs UTC Daily Open</h2>
-
-      <div style={{ marginBottom: '15px', display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+    <div className="panel">
+      <div className="panel-head">
         <div>
-          <span style={{ color: '#4fc3f7' }}>●</span> Current Price: <strong>${currentPrice.toFixed(2)}</strong>
+          <h3 className="panel-title">Price vs Session Anchor</h3>
+          <p className="panel-copy">Visual check of the live market versus the UTC daily-open reference line.</p>
         </div>
-        <div>
-          <span style={{ color: '#ffb74d' }}>●</span> {reference_label}: <strong>${currentReference.toFixed(2)}</strong>
-        </div>
-        <div>
-          <span className={drawdownPct >= 0 ? 'negative' : 'positive'}>
-            Drawdown: {drawdownPct >= 0 ? '' : '+'}{drawdownPct.toFixed(2)}%
-          </span>
+        <div className="chart-callouts">
+          <div>
+            <span>Price</span>
+            <strong>${currentPrice.toFixed(2)}</strong>
+          </div>
+          <div>
+            <span>{reference_label}</span>
+            <strong>${currentReference.toFixed(2)}</strong>
+          </div>
+          <div>
+            <span>Drawdown</span>
+            <strong>{drawdownPct.toFixed(2)}%</strong>
+          </div>
         </div>
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
-        <svg width={width} height={height} style={{ display: 'block', margin: '0 auto' }}>
-          {yTicks.map((price, i) => (
-            <g key={i}>
+      <div className="price-chart-shell">
+        <svg viewBox={`0 0 ${width} ${height}`} className="price-chart" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="priceArea" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="rgba(33, 147, 176, 0.28)" />
+              <stop offset="100%" stopColor="rgba(33, 147, 176, 0.02)" />
+            </linearGradient>
+          </defs>
+
+          {[0.2, 0.4, 0.6, 0.8].map((fraction) => {
+            const y = padding.top + chartHeight * fraction;
+            return (
               <line
+                key={fraction}
                 x1={padding.left}
-                y1={yScale(price)}
+                y1={y}
                 x2={width - padding.right}
-                y2={yScale(price)}
-                stroke="#2a2a2a"
-                strokeWidth="1"
-                strokeDasharray="2,2"
+                y2={y}
+                stroke="rgba(255,255,255,0.08)"
+                strokeDasharray="3 6"
               />
-              <text
-                x={padding.left - 10}
-                y={yScale(price)}
-                textAnchor="end"
-                alignmentBaseline="middle"
-                fill="#999"
-                fontSize="12"
-              >
-                ${price.toFixed(0)}
-              </text>
-            </g>
-          ))}
+            );
+          })}
 
-          {referencePath && (
-            <path d={referencePath} fill="none" stroke="#ffb74d" strokeWidth="2" />
-          )}
+          <path
+            d={`${pricePath} L ${xScale(candles.length - 1)} ${height - padding.bottom} L ${xScale(0)} ${height - padding.bottom} Z`}
+            fill="url(#priceArea)"
+          />
+          <path d={referencePath} fill="none" stroke="var(--accent-warning)" strokeWidth="2" strokeDasharray="8 10" />
+          <path d={pricePath} fill="none" stroke="var(--accent-primary)" strokeWidth="3" strokeLinecap="round" />
 
-          <path d={pricePath} fill="none" stroke="#4fc3f7" strokeWidth="2" />
+          <circle cx={xScale(candles.length - 1)} cy={yScale(currentPrice)} r="4.5" fill="var(--accent-primary)" />
+          <circle cx={xScale(candles.length - 1)} cy={yScale(currentReference)} r="4.5" fill="var(--accent-warning)" />
 
-          <circle cx={xScale(candles.length - 1)} cy={yScale(currentPrice)} r="4" fill="#4fc3f7" />
-          {reference_values.length > 0 && (
-            <circle cx={xScale(candles.length - 1)} cy={yScale(currentReference)} r="4" fill="#ffb74d" />
-          )}
-
-          {[0, Math.floor(candles.length / 2), candles.length - 1].map((i) => {
-            const candle = candles[i];
-            const time = new Date(candle.datetime).toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-            });
+          {timeMarkers.map((marker, index) => {
+            const pointIndex = index === 0 ? 0 : index === 1 ? Math.floor(candles.length / 2) : candles.length - 1;
             return (
               <text
-                key={i}
-                x={xScale(i)}
-                y={height - padding.bottom + 20}
+                key={`${marker.timestamp}-${index}`}
+                x={xScale(pointIndex)}
+                y={height - 6}
                 textAnchor="middle"
-                fill="#999"
-                fontSize="12"
+                className="equity-axis-label"
               >
-                {time}
+                {new Date(marker.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </text>
             );
           })}

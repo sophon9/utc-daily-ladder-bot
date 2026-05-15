@@ -11,6 +11,7 @@ from app.config import BotConfig, ConfigLoader
 from app.exchange import BybitClient
 from app.execution import OrderManager
 from app.marketdata import MarketDataFeed
+from app.performance import EquityHistoryStore
 from app.portfolio import PositionManager, PositionSet, PositionState
 from app.risk import EmergencyStop, RiskLimits
 from app.strategy import Signal, SignalDetector
@@ -54,6 +55,7 @@ class TradingBot:
         self._state_file = Path("data/bot_state.json")
         self._daily_open_price: Optional[float] = None
         self._daily_open_day: Optional[str] = None
+        self.equity_history = EquityHistoryStore()
 
         logger.info(
             "TradingBot initialized (DRY_RUN=%s, symbol=%s, entry_levels=%s, hedge_enabled=%s)",
@@ -84,6 +86,8 @@ class TradingBot:
 
         if not self.market_data:
             await self.initialize()
+
+        await self._validate_live_trading_access()
 
         self.running = True
         self.emergency_stop.reset()
@@ -159,6 +163,26 @@ class TradingBot:
         else:
             logger.info("Previous bot state: stopped")
 
+    async def _validate_live_trading_access(self):
+        """Fail fast before trading if live credentials or account access are invalid."""
+        if self.dry_run:
+            return
+
+        try:
+            wallet = await self.client.get_wallet_balance(account_type="UNIFIED")
+            if "list" not in wallet or not wallet["list"]:
+                raise RuntimeError("wallet response was empty")
+        except Exception as exc:
+            message = str(exc)
+            if "API key is invalid" in message or "401" in message:
+                raise RuntimeError(
+                    "Live trading preflight failed: invalid Bybit API credentials "
+                    "or wrong testnet/mainnet setting."
+                ) from exc
+            raise RuntimeError(
+                f"Live trading preflight failed: could not verify account access ({message})"
+            ) from exc
+
     @staticmethod
     def _get_trading_day(now: Optional[datetime] = None) -> str:
         """Return the current UTC trading day key."""
@@ -229,6 +253,7 @@ class TradingBot:
         while self.running:
             try:
                 await self._update_all_pnl()
+                await self._record_equity_snapshot()
                 self.position_manager.save_positions()
                 await asyncio.sleep(self.config.poll_interval_seconds)
             except asyncio.CancelledError:
@@ -445,6 +470,12 @@ class TradingBot:
             position_set.error_message = f"Close attempt failed (will retry): {exc}"
             self.position_manager.save_positions()
             return False
+
+    async def _record_equity_snapshot(self):
+        """Persist a periodic equity point for performance history."""
+        equity = await self.get_equity()
+        if equity is not None:
+            self.equity_history.record(equity)
 
     async def _update_all_pnl(self):
         """Update PnL for all active position sets."""

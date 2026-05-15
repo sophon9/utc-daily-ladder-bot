@@ -1,10 +1,12 @@
 #!/bin/bash
-# Run script for EMA Trading Bot backend (background mode)
+# Run script for Daily Ladder Bot backend (background mode)
 
-cd "$(dirname "$0")"
+set -euo pipefail
+
+PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 
 HOME_VENV_PYTHON="$HOME/.venvs/ema_bot/bin/python"
-LOCAL_VENV_PYTHON="$(pwd)/backend/venv/bin/python"
+LOCAL_VENV_PYTHON="$PROJECT_ROOT/backend/venv/bin/python"
 
 # Prefer a stable home-directory virtualenv so background launches do not
 # depend on the calling shell's PATH or activation state.
@@ -21,24 +23,24 @@ else
 fi
 
 # Check if .env exists
-if [ ! -f ".env" ]; then
+if [ ! -f "$PROJECT_ROOT/.env" ]; then
     echo "Warning: .env file not found!"
     echo "Please copy .env.example to .env and configure your API credentials"
     exit 1
 fi
 
 # Check if config.json exists
-if [ ! -f "config.json" ]; then
+if [ ! -f "$PROJECT_ROOT/config.json" ]; then
     echo "Warning: config.json not found!"
     echo "Copying from config.example.json..."
-    cp config.example.json config.json
+    cp "$PROJECT_ROOT/config.example.json" "$PROJECT_ROOT/config.json"
 fi
 
 # Create directories
-mkdir -p logs data
+mkdir -p "$PROJECT_ROOT/logs" "$PROJECT_ROOT/data"
 
-PID_FILE="logs/backend.pid"
-LOG_FILE="logs/backend.log"
+PID_FILE="$PROJECT_ROOT/logs/backend.pid"
+LOG_FILE="$PROJECT_ROOT/logs/backend.log"
 
 # Check if already running
 if [ -f "$PID_FILE" ]; then
@@ -54,7 +56,7 @@ fi
 # Get local IP address
 LOCAL_IP=$(hostname -I | awk '{print $1}')
 
-echo "Starting EMA Trading Bot Backend (background)..."
+echo "Starting Daily Ladder Bot Backend (background)..."
 echo "======================================="
 echo ""
 echo "Access URLs:"
@@ -68,8 +70,28 @@ echo "Logs:    $LOG_FILE"
 echo "To stop: ./stop_backend.sh"
 echo ""
 
-cd backend
-nohup "$PYTHON_BIN" -m uvicorn app.main:app --host 0.0.0.0 --port 8010 >> "../$LOG_FILE" 2>&1 &
-echo $! > "../$PID_FILE"
+nohup setsid "$PYTHON_BIN" -m uvicorn \
+    --app-dir "$PROJECT_ROOT/backend" \
+    app.main:app \
+    --host 0.0.0.0 \
+    --port 8010 \
+    >> "$LOG_FILE" 2>&1 < /dev/null &
+echo $! > "$PID_FILE"
 
-echo "Backend started (PID $(cat ../$PID_FILE))"
+BACKEND_PID=$(cat "$PID_FILE")
+sleep 3
+
+if ! kill -0 "$BACKEND_PID" 2>/dev/null; then
+    echo "Backend failed to stay running. Recent log output:"
+    tail -n 50 "$LOG_FILE" 2>/dev/null || true
+    rm -f "$PID_FILE"
+    exit 1
+fi
+
+if ! curl -fsS "http://127.0.0.1:8010/" >/dev/null 2>&1; then
+    echo "Backend process started but HTTP endpoint did not become ready. Recent log output:"
+    tail -n 50 "$LOG_FILE" 2>/dev/null || true
+    exit 1
+fi
+
+echo "Backend started (PID $BACKEND_PID)"
