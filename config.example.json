@@ -1,0 +1,23 @@
+{
+  "bot_name": "Daily Ladder Bot",
+  "symbol": "ETHUSDT",
+  "bias": "long",
+  "timeframe": "5m",
+  "entry_levels_pct": [1.0, 2.0, 3.0],
+  "target_profit_pct": 1.0,
+  "max_loss_usd": 200.0,
+  "max_position_sets": 3,
+  "cooldown_minutes": 0,
+  "perp_qty": 0.1,
+  "hedge_config": {
+    "enabled": true,
+    "hedge_otm_pct": 3.0,
+    "hedge_dte_min_days": 20,
+    "close_with_future": true,
+    "slippage_bps": 50
+  },
+  "poll_interval_seconds": 10,
+  "use_testnet": true,
+  "dry_run": true,
+  "log_level": "INFO"
+}
