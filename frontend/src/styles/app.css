@@ -542,9 +542,22 @@ tr:hover {
   width: 100%;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(12, 22, 38, 0.96);
   color: var(--text-primary);
   padding: 12px 14px;
+}
+
+.form-select,
+select {
+  appearance: none;
+  background-color: rgba(12, 22, 38, 0.96);
+  color: var(--text-primary);
+}
+
+.form-select option,
+select option {
+  background: #0d1628;
+  color: var(--text-primary);
 }
 
 .form-input:focus,

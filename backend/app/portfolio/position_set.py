@@ -231,12 +231,17 @@ class PositionSet:
             and not self.perp_leg.closed
             and self.perp_leg.mark_price is not None
             and self.target_exit_price is not None
-            and self.perp_leg.mark_price >= self.target_exit_price
         ):
-            return True, (
-                f"Futures target reached: mark ${self.perp_leg.mark_price:.2f} "
-                f">= target ${self.target_exit_price:.2f}"
-            )
+            if self.bias == "short" and self.perp_leg.mark_price <= self.target_exit_price:
+                return True, (
+                    f"Futures target reached: mark ${self.perp_leg.mark_price:.2f} "
+                    f"<= target ${self.target_exit_price:.2f}"
+                )
+            if self.bias == "long" and self.perp_leg.mark_price >= self.target_exit_price:
+                return True, (
+                    f"Futures target reached: mark ${self.perp_leg.mark_price:.2f} "
+                    f">= target ${self.target_exit_price:.2f}"
+                )
 
         # Max loss (max_loss_usd=0 or None means stop-loss is disabled)
         if self.max_loss_usd and self.combined_pnl <= -self.max_loss_usd:

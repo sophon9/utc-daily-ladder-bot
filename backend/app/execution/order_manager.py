@@ -187,6 +187,48 @@ class OptionSelector:
         )
         return selected_option
 
+    def select_otm_call_option(
+        self,
+        spot_price: float,
+        min_otm_pct: float,
+        min_dte: int = 20,
+        instruments: Optional[list[OptionInstrument]] = None,
+    ) -> Optional[OptionInstrument]:
+        """Select the nearest OTM call strike at or beyond the configured distance."""
+        if not instruments:
+            logger.error("No instruments provided for selection")
+            return None
+
+        target_strike = spot_price * (1 + (min_otm_pct / 100))
+        candidates = [inst for inst in instruments if inst.option_type == "Call"]
+        candidates = [inst for inst in candidates if inst.dte >= min_dte]
+
+        if not candidates:
+            logger.warning("No Call options with DTE >= %s", min_dte)
+            return None
+
+        nearest_expiry = min(candidates, key=lambda x: x.dte).expiry
+        candidates = [inst for inst in candidates if inst.expiry == nearest_expiry]
+
+        otm_candidates = [inst for inst in candidates if inst.strike >= target_strike]
+        if not otm_candidates:
+            logger.warning(
+                "No Call strike found at least %.2f%% OTM for spot %.2f on nearest expiry %s",
+                min_otm_pct,
+                spot_price,
+                nearest_expiry,
+            )
+            return None
+
+        selected_option = min(otm_candidates, key=lambda x: x.strike)
+        logger.info(
+            "Selected OTM Call: %s for spot %.2f (target strike >= %.2f)",
+            selected_option,
+            spot_price,
+            target_strike,
+        )
+        return selected_option
+
 
 class OrderManager:
     """

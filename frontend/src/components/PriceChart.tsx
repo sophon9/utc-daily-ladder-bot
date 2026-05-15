@@ -8,6 +8,7 @@ interface ChartData {
   candles: Candle[];
   reference_values: number[];
   reference_label: string;
+  move_label?: string;
 }
 
 interface PriceChartProps {
@@ -24,7 +25,7 @@ export default function PriceChart({ data, loading }: PriceChartProps) {
     return <div className="panel panel-empty">No chart data available.</div>;
   }
 
-  const { candles, reference_values, reference_label } = data;
+  const { candles, reference_values, reference_label, move_label } = data;
   const width = 760;
   const height = 320;
   const padding = { top: 18, right: 18, bottom: 28, left: 18 };
@@ -55,7 +56,10 @@ export default function PriceChart({ data, loading }: PriceChartProps) {
 
   const currentPrice = prices[prices.length - 1];
   const currentReference = reference_values[reference_values.length - 1] || 0;
-  const drawdownPct = currentReference > 0 ? ((currentReference - currentPrice) / currentReference) * 100 : 0;
+  const movePct = currentReference > 0
+    ? ((currentPrice - currentReference) / currentReference) * 100
+    : 0;
+  const displayedMovePct = move_label?.toLowerCase().includes('drawdown') ? -movePct : movePct;
 
   const timeMarkers = [
     candles[0],
@@ -80,8 +84,8 @@ export default function PriceChart({ data, loading }: PriceChartProps) {
             <strong>${currentReference.toFixed(2)}</strong>
           </div>
           <div>
-            <span>Drawdown</span>
-            <strong>{drawdownPct.toFixed(2)}%</strong>
+            <span>{move_label ?? 'Move From Open'}</span>
+            <strong>{displayedMovePct.toFixed(2)}%</strong>
           </div>
         </div>
       </div>

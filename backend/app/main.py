@@ -114,7 +114,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="Daily Ladder Bot API",
-    description="Automated trading bot for UTC daily-open drawdown entries with put hedges",
+    description="Automated trading bot for UTC daily-open ladder entries with mirrored futures and option hedges",
     version="1.0.0",
     lifespan=lifespan,
 )

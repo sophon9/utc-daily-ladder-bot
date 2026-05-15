@@ -112,7 +112,7 @@ export default function Positions({ positions }: PositionsProps) {
                   <th>Level</th>
                   <th>State</th>
                   <th>Perp</th>
-                  <th>Hedge Put</th>
+                  <th>Hedge Option</th>
                   <th>Combined PnL</th>
                   <th>Target</th>
                   <th>Open Time</th>

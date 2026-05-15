@@ -1,4 +1,4 @@
-"""Main trading bot orchestrator for the daily drawdown ladder strategy."""
+"""Main trading bot orchestrator for the daily open ladder strategy."""
 import asyncio
 import json
 import logging
@@ -34,8 +34,8 @@ class TradingBot:
         self.dry_run = dry_run
         self.config_path = config_path
 
-        self.market_data: Optional[MarketDataFeed] = None
-        self.signal_detector = SignalDetector(config.entry_levels_pct)
+        self.market_data: dict[str, MarketDataFeed] = {}
+        self.signal_detector = SignalDetector()
         self.position_manager = PositionManager(config.max_position_sets)
         self.order_manager = OrderManager(exchange_client, dry_run)
         self.risk_limits = RiskLimits(config.cooldown_minutes, config.max_position_sets)
@@ -53,30 +53,41 @@ class TradingBot:
         self._equity_lock = asyncio.Lock()
 
         self._state_file = Path("data/bot_state.json")
-        self._daily_open_price: Optional[float] = None
-        self._daily_open_day: Optional[str] = None
+        self._daily_open_price: dict[str, float] = {}
+        self._daily_open_day: dict[str, str] = {}
         self.equity_history = EquityHistoryStore()
 
         logger.info(
-            "TradingBot initialized (DRY_RUN=%s, symbol=%s, entry_levels=%s, hedge_enabled=%s)",
+            "TradingBot initialized (DRY_RUN=%s, long_symbol=%s, short_symbol=%s, hedge_enabled=%s)",
             dry_run,
-            config.symbol,
-            config.entry_levels_pct,
+            config.long_symbol,
+            config.short_symbol,
             config.hedge_config.enabled,
         )
 
     async def initialize(self):
         """Initialize bot components."""
         logger.info("Initializing trading bot...")
-        self.market_data = MarketDataFeed(self.client, symbol=self.config.symbol, interval="5")
-        await self.market_data.initialize(ema_period=200, historical_limit=300)
-        await self._refresh_daily_open_price(force=True)
+        await self._initialize_market_data_feeds()
+        for bias in self._enabled_biases(self.config.bias):
+            await self._refresh_daily_open_price(bias=bias, force=True)
         self.position_manager.load_positions()
 
         if self.config_path and self.config_path.exists():
             self._config_last_mtime = self.config_path.stat().st_mtime
 
         logger.info("Trading bot initialized successfully")
+
+    async def _initialize_market_data_feeds(self):
+        """Build market data feeds for the currently enabled strategy directions."""
+        self.market_data = {}
+        for bias in self._enabled_biases(self.config.bias):
+            symbol = self._symbol_for_bias(bias)
+            if symbol in self.market_data:
+                continue
+            feed = MarketDataFeed(self.client, symbol=symbol, interval="5")
+            await feed.initialize(ema_period=200, historical_limit=300)
+            self.market_data[symbol] = feed
 
     async def start(self):
         """Start the trading bot."""
@@ -184,19 +195,47 @@ class TradingBot:
             ) from exc
 
     @staticmethod
+    def _enabled_biases(config_bias: str) -> list[str]:
+        """Return the active trade directions for the configured strategy mode."""
+        if config_bias == "both":
+            return ["long", "short"]
+        if config_bias in {"long", "short"}:
+            return [config_bias]
+        return []
+
+    def _symbol_for_bias(self, bias: str) -> str:
+        """Return the configured perpetual symbol for the given direction."""
+        return self.config.short_symbol if bias == "short" else self.config.long_symbol
+
+    def _entry_levels_for_bias(self, bias: str) -> list[float]:
+        """Return the configured ladder thresholds for the given direction."""
+        return self.config.short_entry_levels_pct if bias == "short" else self.config.long_entry_levels_pct
+
+    @staticmethod
+    def _base_coin_for_symbol(symbol: str) -> str:
+        """Infer the options base coin from a perpetual symbol."""
+        upper_symbol = symbol.upper()
+        for suffix in ("USDT", "USDC", "USD", "PERP"):
+            if upper_symbol.endswith(suffix):
+                base = upper_symbol[: -len(suffix)]
+                if base:
+                    return base
+        return upper_symbol
+
+    @staticmethod
     def _get_trading_day(now: Optional[datetime] = None) -> str:
         """Return the current UTC trading day key."""
         current = now or datetime.now(timezone.utc)
         return current.astimezone(timezone.utc).strftime("%Y-%m-%d")
 
-    async def _refresh_daily_open_price(self, force: bool = False):
+    async def _refresh_daily_open_price(self, bias: str, force: bool = False):
         """Refresh the UTC daily open price from the current 1D candle."""
         trading_day = self._get_trading_day()
-        if not force and self._daily_open_day == trading_day and self._daily_open_price is not None:
+        if not force and self._daily_open_day.get(bias) == trading_day and self._daily_open_price.get(bias) is not None:
             return
 
         klines = await self.client.get_klines(
-            symbol=self.config.symbol,
+            symbol=self._symbol_for_bias(bias),
             interval="D",
             category="linear",
             limit=1,
@@ -205,19 +244,22 @@ class TradingBot:
             raise RuntimeError("Could not fetch daily open price")
 
         latest_daily = klines[0]
-        self._daily_open_price = float(latest_daily[1])
-        self._daily_open_day = trading_day
+        self._daily_open_price[bias] = float(latest_daily[1])
+        self._daily_open_day[bias] = trading_day
         logger.info(
-            "Daily open refreshed for %s: %.2f",
+            "%s daily open refreshed for %s: %.2f",
+            bias,
             trading_day,
-            self._daily_open_price,
+            self._daily_open_price[bias],
         )
 
-    def _get_used_ladder_levels_for_day(self, trading_day: str) -> set[int]:
+    def _get_used_ladder_levels_for_day(self, trading_day: str, bias: Optional[str] = None) -> set[int]:
         """Return every ladder level already entered for the specified UTC day."""
         used_levels: set[int] = set()
         for position_set in self.position_manager.get_all_sets():
             if position_set.trading_day != trading_day:
+                continue
+            if bias and position_set.bias != bias:
                 continue
             if position_set.ladder_level is None:
                 continue
@@ -231,8 +273,12 @@ class TradingBot:
         logger.info("Main trading loop started")
         while self.running and not self.emergency_stop.is_stopped():
             try:
-                await self.market_data.update()
-                await self._refresh_daily_open_price()
+                for bias in self._enabled_biases(self.config.bias):
+                    symbol = self._symbol_for_bias(bias)
+                    feed = self.market_data.get(symbol)
+                    if feed:
+                        await feed.update()
+                    await self._refresh_daily_open_price(bias=bias)
 
                 if self.config.bias != "off":
                     await self._check_and_handle_entry_signals()
@@ -292,46 +338,56 @@ class TradingBot:
             config_loader = ConfigLoader(str(self.config_path))
             new_config = config_loader.load()
             self.config = new_config
-            self.signal_detector = SignalDetector(new_config.entry_levels_pct)
             self.position_manager.max_sets = new_config.max_position_sets
             self.risk_limits.cooldown_minutes = new_config.cooldown_minutes
             self.risk_limits.max_position_sets = new_config.max_position_sets
+            await self._initialize_market_data_feeds()
+            for bias in self._enabled_biases(new_config.bias):
+                await self._refresh_daily_open_price(bias=bias, force=True)
             logger.info("Config reload complete")
         except Exception as exc:
             logger.error("Failed to reload config: %s", exc)
 
     async def _check_and_handle_entry_signals(self):
         """Open new entries for every unfilled ladder level currently reached."""
-        if not self.market_data or not self.market_data.candle_manager or self._daily_open_price is None:
-            return
-
-        latest_candle = self.market_data.candle_manager.get_latest_candle()
-        if not latest_candle:
+        if not self.market_data:
             return
 
         trading_day = self._get_trading_day()
-        used_levels = self._get_used_ladder_levels_for_day(trading_day)
-        signals = self.signal_detector.check_signals(
-            current_price=latest_candle.close,
-            daily_open_price=self._daily_open_price,
-            trading_day=trading_day,
-            used_levels=used_levels,
-        )
 
-        for signal in signals:
-            active_count = self.position_manager.count_active_sets()
-            can_open, reason = self.risk_limits.can_open_new_position(active_count)
-            if not can_open:
-                logger.info("Cannot open ladder level %s: %s", signal.ladder_level, reason)
-                break
-            await self._open_position_set(signal)
+        for bias in self._enabled_biases(self.config.bias):
+            symbol = self._symbol_for_bias(bias)
+            feed = self.market_data.get(symbol)
+            daily_open_price = self._daily_open_price.get(bias)
+            if not feed or not feed.candle_manager or daily_open_price is None:
+                continue
+            latest_candle = feed.candle_manager.get_latest_candle()
+            if not latest_candle:
+                continue
+            used_levels = self._get_used_ladder_levels_for_day(trading_day, bias=bias)
+            signals = self.signal_detector.check_signals(
+                current_price=latest_candle.close,
+                daily_open_price=daily_open_price,
+                trading_day=trading_day,
+                used_levels=used_levels,
+                entry_levels_pct=self._entry_levels_for_bias(bias),
+                bias=bias,
+            )
+
+            for signal in signals:
+                active_count = self.position_manager.count_active_sets()
+                can_open, reason = self.risk_limits.can_open_new_position(active_count)
+                if not can_open:
+                    logger.info("Cannot open %s ladder level %s: %s", bias, signal.ladder_level, reason)
+                    break
+                await self._open_position_set(signal)
 
     async def _open_position_set(self, signal: Signal):
-        """Open one futures position and its optional hedge put."""
+        """Open one futures position and its optional hedge option."""
         logger.info("Opening position set for signal: %s", signal)
 
         position_set = PositionSet(
-            bias="long",
+            bias=signal.bias,
             target_profit_pct=self.config.target_profit_pct,
             max_loss_usd=self.config.max_loss_usd,
             entry_signal_price=signal.price,
@@ -347,28 +403,41 @@ class TradingBot:
             return
 
         try:
+            perp_side = "short" if signal.bias == "short" else "long"
+            perp_symbol = self._symbol_for_bias(signal.bias)
             perp_leg = await self.order_manager.open_perp_leg(
-                symbol=self.config.symbol,
-                side="long",
+                symbol=perp_symbol,
+                side=perp_side,
                 qty=self.config.perp_qty,
             )
             if not perp_leg or not perp_leg.filled:
                 raise Exception("Failed to open perpetual leg")
 
             position_set.perp_leg = perp_leg
-            position_set.target_exit_price = perp_leg.entry_price * (1 + (self.config.target_profit_pct / 100))
+            if signal.bias == "short":
+                position_set.target_exit_price = perp_leg.entry_price * (1 - (self.config.target_profit_pct / 100))
+            else:
+                position_set.target_exit_price = perp_leg.entry_price * (1 + (self.config.target_profit_pct / 100))
 
             if self.config.hedge_config.enabled:
-                base_coin = self.config.symbol.replace("USDT", "").replace("USDC", "")
+                base_coin = self._base_coin_for_symbol(perp_symbol)
                 instruments = await self.order_manager.option_selector.fetch_instruments(base_coin=base_coin)
-                selected_option = self.order_manager.option_selector.select_otm_put_option(
-                    spot_price=perp_leg.entry_price or signal.price,
-                    min_otm_pct=self.config.hedge_config.hedge_otm_pct,
-                    min_dte=self.config.hedge_config.hedge_dte_min_days,
-                    instruments=instruments,
-                )
+                if signal.bias == "short":
+                    selected_option = self.order_manager.option_selector.select_otm_call_option(
+                        spot_price=perp_leg.entry_price or signal.price,
+                        min_otm_pct=self.config.hedge_config.hedge_otm_pct,
+                        min_dte=self.config.hedge_config.hedge_dte_min_days,
+                        instruments=instruments,
+                    )
+                else:
+                    selected_option = self.order_manager.option_selector.select_otm_put_option(
+                        spot_price=perp_leg.entry_price or signal.price,
+                        min_otm_pct=self.config.hedge_config.hedge_otm_pct,
+                        min_dte=self.config.hedge_config.hedge_dte_min_days,
+                        instruments=instruments,
+                    )
                 if not selected_option:
-                    raise Exception("No suitable hedge put option found")
+                    raise Exception("No suitable hedge option found")
 
                 option_leg = await self.order_manager.open_option_leg(
                     option_instrument=selected_option,
@@ -520,18 +589,49 @@ class TradingBot:
 
     def get_status(self) -> dict:
         """Get bot status for API and WebSocket responses."""
-        latest_candle = self.market_data.candle_manager.get_latest_candle() if self.market_data else None
+        display_bias = "short" if self.config.bias == "short" else "long"
+        display_symbol = self._symbol_for_bias(display_bias)
+        display_feed = self.market_data.get(display_symbol) if self.market_data else None
+        latest_candle = display_feed.candle_manager.get_latest_candle() if display_feed and display_feed.candle_manager else None
         current_price = latest_candle.close if latest_candle else None
         current_drawdown_pct = None
-        if current_price is not None and self._daily_open_price:
-            current_drawdown_pct = self.signal_detector.compute_drawdown_pct(self._daily_open_price, current_price)
+        current_long_move_pct = None
+        current_short_move_pct = None
+        long_open_price = self._daily_open_price.get("long")
+        short_open_price = self._daily_open_price.get("short")
+        long_feed = self.market_data.get(self.config.long_symbol) if self.market_data else None
+        short_feed = self.market_data.get(self.config.short_symbol) if self.market_data else None
+        long_candle = long_feed.candle_manager.get_latest_candle() if long_feed and long_feed.candle_manager else None
+        short_candle = short_feed.candle_manager.get_latest_candle() if short_feed and short_feed.candle_manager else None
+        if long_candle is not None and long_open_price is not None:
+            current_long_move_pct = self.signal_detector.compute_move_pct(
+                long_open_price,
+                long_candle.close,
+                bias="long",
+            )
+        if short_candle is not None and short_open_price is not None:
+            current_short_move_pct = self.signal_detector.compute_move_pct(
+                short_open_price,
+                short_candle.close,
+                bias="short",
+            )
+        if current_long_move_pct is not None or current_short_move_pct is not None:
+            if self.config.bias == "short":
+                current_drawdown_pct = current_short_move_pct
+            elif self.config.bias == "both":
+                current_drawdown_pct = max(current_long_move_pct or 0.0, current_short_move_pct or 0.0)
+            else:
+                current_drawdown_pct = current_long_move_pct
 
         trading_day = self._get_trading_day()
-        filled_levels_today = sorted(self._get_used_ladder_levels_for_day(trading_day))
+        filled_levels_today = sorted(self._get_used_ladder_levels_for_day(trading_day, bias="long"))
+        filled_levels_today_short = sorted(self._get_used_ladder_levels_for_day(trading_day, bias="short"))
 
         return {
             "bot_name": self.config.bot_name,
-            "symbol": self.config.symbol,
+            "symbol": display_symbol,
+            "long_symbol": self.config.long_symbol,
+            "short_symbol": self.config.short_symbol,
             "running": self.running,
             "bias": self.config.bias,
             "dry_run": self.dry_run,
@@ -542,10 +642,16 @@ class TradingBot:
             "cooldown_remaining": self.risk_limits.get_cooldown_remaining(),
             "latest_candle_time": latest_candle.datetime.isoformat() if latest_candle else None,
             "current_price": current_price,
-            "daily_open_price": self._daily_open_price,
+            "daily_open_price": long_open_price if self.config.bias != "short" else short_open_price,
+            "long_daily_open_price": long_open_price,
+            "short_daily_open_price": short_open_price,
             "current_drawdown_pct": current_drawdown_pct,
-            "entry_levels_pct": self.config.entry_levels_pct,
+            "current_long_move_pct": current_long_move_pct,
+            "current_short_move_pct": current_short_move_pct,
+            "long_entry_levels_pct": self.config.long_entry_levels_pct,
+            "short_entry_levels_pct": self.config.short_entry_levels_pct,
             "filled_levels_today": filled_levels_today,
+            "filled_levels_today_short": filled_levels_today_short,
             "target_profit_pct": self.config.target_profit_pct,
             "hedge_enabled": self.config.hedge_config.enabled,
             "close_hedge_with_future": self.config.hedge_config.close_with_future,

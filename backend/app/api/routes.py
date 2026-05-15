@@ -222,14 +222,16 @@ async def close_all_positions(bot: TradingBot = Depends(get_bot)):
 @router.get("/market-data")
 async def get_market_data(bot: TradingBot = Depends(get_bot)):
     """Get current market data."""
-    if not bot.market_data or not bot.market_data.candle_manager:
+    status = bot.get_status()
+    symbol = status.get("symbol")
+    feed = bot.market_data.get(symbol) if bot.market_data and symbol else None
+    if not feed or not feed.candle_manager:
         raise HTTPException(status_code=503, detail="Market data not available")
 
-    latest_candle = bot.market_data.candle_manager.get_latest_candle()
-    status = bot.get_status()
+    latest_candle = feed.candle_manager.get_latest_candle()
 
     return {
-        "symbol": bot.config.symbol,
+        "symbol": symbol,
         "interval": "5m",
         "latest_candle": {
             "timestamp": latest_candle.timestamp,
@@ -242,7 +244,7 @@ async def get_market_data(bot: TradingBot = Depends(get_bot)):
         } if latest_candle else None,
         "daily_open_price": status.get("daily_open_price"),
         "current_drawdown_pct": status.get("current_drawdown_pct"),
-        "candle_count": len(bot.market_data.candle_manager),
+        "candle_count": len(feed.candle_manager),
     }
 
 
@@ -252,20 +254,23 @@ async def get_chart_data(
     bot: TradingBot = Depends(get_bot)
 ):
     """Get recent candles with the current UTC daily-open reference line."""
-    if not bot.market_data or not bot.market_data.candle_manager:
+    status = bot.get_status()
+    symbol = status.get("symbol")
+    feed = bot.market_data.get(symbol) if bot.market_data and symbol else None
+    if not feed or not feed.candle_manager:
         raise HTTPException(status_code=503, detail="Market data not available")
 
-    candle_mgr = bot.market_data.candle_manager
+    candle_mgr = feed.candle_manager
 
     # Get recent candles (last N)
     all_candles = candle_mgr.candles
     recent_candles = all_candles[-limit:] if len(all_candles) > limit else all_candles
 
-    daily_open_price = bot.get_status().get("daily_open_price")
+    daily_open_price = status.get("daily_open_price")
     reference_values = [daily_open_price for _ in recent_candles] if daily_open_price else []
 
     return {
-        "symbol": bot.config.symbol,
+        "symbol": symbol,
         "interval": "5m",
         "candles": [
             {
@@ -281,6 +286,13 @@ async def get_chart_data(
         ],
         "reference_values": reference_values,
         "reference_label": "UTC Daily Open",
+        "move_label": (
+            "Rally From Open"
+            if bot.config.bias == "short"
+            else "Move From Open"
+            if bot.config.bias == "both"
+            else "Drawdown From Open"
+        ),
     }
 
 

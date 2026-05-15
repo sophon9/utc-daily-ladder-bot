@@ -15,7 +15,8 @@ function parseLevels(raw: string): number[] {
 export default function Config() {
   const api = useAPI();
   const [config, setConfig] = useState<BotConfig | null>(null);
-  const [entryLevelsInput, setEntryLevelsInput] = useState('');
+  const [longEntryLevelsInput, setLongEntryLevelsInput] = useState('');
+  const [shortEntryLevelsInput, setShortEntryLevelsInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('strategy');
@@ -29,7 +30,8 @@ export default function Config() {
     try {
       const cfg = await api.getConfig();
       setConfig(cfg);
-      setEntryLevelsInput(cfg.entry_levels_pct.join(', '));
+      setLongEntryLevelsInput(cfg.long_entry_levels_pct.join(', '));
+      setShortEntryLevelsInput(cfg.short_entry_levels_pct.join(', '));
     } catch (err) {
       console.error('Failed to load config:', err);
     } finally {
@@ -44,7 +46,8 @@ export default function Config() {
     try {
       const nextConfig = {
         ...config,
-        entry_levels_pct: parseLevels(entryLevelsInput),
+        long_entry_levels_pct: parseLevels(longEntryLevelsInput),
+        short_entry_levels_pct: parseLevels(shortEntryLevelsInput),
       };
       await api.updateConfig(nextConfig);
       await loadConfig();
@@ -58,7 +61,11 @@ export default function Config() {
 
   const updateField = (field: keyof BotConfig, value: any) => {
     if (!config) return;
-    setConfig({ ...config, [field]: value });
+    const nextConfig = { ...config, [field]: value };
+    if (field === 'bias' && (value === 'short' || value === 'both') && config.short_symbol === 'ETHUSDT') {
+      nextConfig.short_symbol = 'ETHPERP';
+    }
+    setConfig(nextConfig);
   };
 
   const updateHedgeField = (field: keyof HedgeConfig, value: any) => {
@@ -72,6 +79,30 @@ export default function Config() {
   if (loading || !config) {
     return <div className="card">Loading configuration...</div>;
   }
+
+  const isShortBias = config.bias === 'short';
+  const isBothBias = config.bias === 'both';
+  const triggerDirectionCopy = isShortBias
+    ? 'Configure the rally ladder used for short entries above the UTC 00:00 daily open.'
+    : isBothBias
+    ? 'Configure independent drawdown and rally ladders for simultaneous long and short monitoring.'
+    : 'Configure the drawdown ladder used for long entries below the UTC 00:00 daily open.';
+  const takeProfitCopy = isShortBias
+    ? 'Futures leg exits when its mark price falls by this percent from entry.'
+    : isBothBias
+    ? 'Long entries exit on moves up from entry. Short entries exit on moves down from entry.'
+    : 'Futures leg exits when its mark price rises by this percent from entry.';
+  const hedgeLabel = isShortBias ? 'Enable Long Call Hedge' : isBothBias ? 'Enable Mirrored Option Hedges' : 'Enable Long Put Hedge';
+  const hedgeDistanceCopy = isShortBias
+    ? 'Strike must be at least this far above spot.'
+    : isBothBias
+    ? 'Long ladders use puts below spot. Short ladders use calls above spot by this same distance.'
+    : 'Strike must be at least this far below spot.';
+  const closeHedgeCopy = isShortBias
+    ? 'If disabled, the bot leaves the call open and the position set moves to `hedge_only`.'
+    : isBothBias
+    ? 'If disabled, the bot leaves the hedge option open after either long or short futures exits.'
+    : 'If disabled, the bot leaves the put open and the position set moves to `hedge_only`.';
 
   const subTabStyle = (tab: SubTab): React.CSSProperties => ({
     padding: '8px 20px',
@@ -108,7 +139,7 @@ export default function Config() {
         {activeSubTab === 'strategy' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
             <div>
-              <h3 style={{ marginBottom: '16px', fontSize: '15px', color: 'var(--text-secondary)' }}>Entry Ladder</h3>
+              <h3 style={{ marginBottom: '16px', fontSize: '15px', color: 'var(--text-secondary)' }}>Entry Ladders</h3>
 
               <div className="form-group">
                 <label className="form-label">Mode</label>
@@ -118,23 +149,43 @@ export default function Config() {
                   onChange={(e) => updateField('bias', e.target.value as any)}
                 >
                   <option value="long">Long Ladder Enabled</option>
+                  <option value="short">Short Ladder Enabled</option>
+                  <option value="both">Both Sides Enabled</option>
                   <option value="off">Off</option>
                 </select>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Entry Levels (%)</label>
+                <label className="form-label">Long Entry Levels (%)</label>
                 <input
                   type="text"
                   className="form-input"
-                  value={entryLevelsInput}
-                  onChange={(e) => setEntryLevelsInput(e.target.value)}
+                  value={longEntryLevelsInput}
+                  onChange={(e) => setLongEntryLevelsInput(e.target.value)}
                   placeholder="1, 2, 3"
                 />
                 <small className="text-muted" style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                  Comma-separated drawdown levels from the UTC 00:00 daily open.
+                  Drawdown levels below the UTC 00:00 daily open for long futures + long put entries.
                 </small>
               </div>
+
+              <div className="form-group">
+                <label className="form-label">Short Entry Levels (%)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={shortEntryLevelsInput}
+                  onChange={(e) => setShortEntryLevelsInput(e.target.value)}
+                  placeholder="1, 2, 3"
+                />
+                <small className="text-muted" style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                  Rally levels above the UTC 00:00 daily open for short futures + long call entries.
+                </small>
+              </div>
+
+              <p className="text-muted" style={{ fontSize: '12px', marginTop: '-4px' }}>
+                {triggerDirectionCopy}
+              </p>
 
               <div className="form-group">
                 <label className="form-label">Take Profit (%)</label>
@@ -146,7 +197,7 @@ export default function Config() {
                   onChange={(e) => updateField('target_profit_pct', parseFloat(e.target.value))}
                 />
                 <small className="text-muted" style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                  Futures leg exits when its mark price reaches this percent above its entry.
+                  {takeProfitCopy}
                 </small>
               </div>
             </div>
@@ -164,7 +215,7 @@ export default function Config() {
                   onChange={(e) => updateField('perp_qty', parseFloat(e.target.value))}
                 />
                 <small className="text-muted" style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                  The hedge put uses the same numeric size.
+                  The hedge option uses the same numeric size.
                 </small>
               </div>
 
@@ -216,7 +267,7 @@ export default function Config() {
                   onChange={(e) => updateHedgeField('enabled', e.target.checked)}
                   style={{ marginRight: '8px' }}
                 />
-                Enable Long Put Hedge
+                {hedgeLabel}
               </label>
             </div>
 
@@ -230,7 +281,7 @@ export default function Config() {
                 onChange={(e) => updateHedgeField('hedge_otm_pct', parseFloat(e.target.value))}
               />
               <small className="text-muted" style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                Strike must be at least this far below spot.
+                {hedgeDistanceCopy}
               </small>
             </div>
 
@@ -265,7 +316,7 @@ export default function Config() {
                 Close Hedge When Futures Exit
               </label>
               <small className="text-muted" style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                If disabled, the bot leaves the put open and the position set moves to `hedge_only`.
+                {closeHedgeCopy}
               </small>
             </div>
           </div>
@@ -285,13 +336,24 @@ export default function Config() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Symbol</label>
+              <label className="form-label">Long Symbol</label>
               <input
                 type="text"
                 className="form-input"
-                value={config.symbol}
-                onChange={(e) => updateField('symbol', e.target.value.toUpperCase())}
+                value={config.long_symbol}
+                onChange={(e) => updateField('long_symbol', e.target.value.toUpperCase())}
                 placeholder="ETHUSDT"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Short Symbol</label>
+              <input
+                type="text"
+                className="form-input"
+                value={config.short_symbol}
+                onChange={(e) => updateField('short_symbol', e.target.value.toUpperCase())}
+                placeholder="ETHPERP"
               />
             </div>
 

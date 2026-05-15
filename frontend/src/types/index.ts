@@ -1,7 +1,9 @@
 export interface BotStatus {
   running: boolean;
   symbol: string;
-  bias: 'long' | 'off';
+  long_symbol: string;
+  short_symbol: string;
+  bias: 'long' | 'short' | 'both' | 'off';
   dry_run: boolean;
   testnet: boolean;
   bot_name?: string;
@@ -17,9 +19,15 @@ export interface BotStatus {
   latest_candle_time?: string;
   current_price?: number;
   daily_open_price?: number;
+  long_daily_open_price?: number;
+  short_daily_open_price?: number;
   current_drawdown_pct?: number;
-  entry_levels_pct: number[];
+  current_long_move_pct?: number;
+  current_short_move_pct?: number;
+  long_entry_levels_pct: number[];
+  short_entry_levels_pct: number[];
   filled_levels_today: number[];
+  filled_levels_today_short: number[];
   target_profit_pct: number;
   hedge_enabled: boolean;
   close_hedge_with_future: boolean;
@@ -81,10 +89,12 @@ export interface HedgeConfig {
 
 export interface BotConfig {
   bot_name: string;
-  symbol: string;
-  bias: 'long' | 'off';
+  long_symbol: string;
+  short_symbol: string;
+  bias: 'long' | 'short' | 'both' | 'off';
   timeframe: '5m';
-  entry_levels_pct: number[];
+  long_entry_levels_pct: number[];
+  short_entry_levels_pct: number[];
   target_profit_pct: number;
   max_loss_usd?: number | null;
   max_position_sets: number;
