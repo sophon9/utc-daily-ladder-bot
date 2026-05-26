@@ -170,16 +170,16 @@ export default function Overview({ status }: OverviewProps) {
     ? Math.min(...activeLevels.map((level) => level - currentMove).filter((value) => value > 0))
     : null;
   const headline = isShortBias
-    ? `${status.short_symbol} rally fade with protective call hedges`
+    ? `${status.short_symbol} entries at advantage rally levels`
     : isBothBias
-    ? `${status.long_symbol} / ${status.short_symbol} two-sided daily open capture`
-    : `${status.long_symbol} rebound capture with protective put hedges`;
+    ? `${status.long_symbol} / ${status.short_symbol} advantage price entries`
+    : `${status.long_symbol} entries at advantage pullback levels`;
   const description = isShortBias
-    ? 'The bot tracks upside extension from the UTC session open, scales into configured short entries, and pairs each futures fill with a long OTM call hedge.'
+    ? 'The bot waits for price to move above the UTC daily open, then enters short positions only at configured advantage levels.'
     : isBothBias
-    ? 'The bot monitors both sides of the UTC session open at the same time: long futures with puts on drawdowns, and short futures with calls on rallies.'
-    : 'The bot tracks drawdown from the UTC session open, scales into configured long entries, and pairs each futures fill with a long OTM put hedge.';
-  const moveLabel = isShortBias ? 'Current rally' : isBothBias ? 'Primary ladder move' : 'Current drawdown';
+    ? 'The bot monitors both sides of the UTC daily open and waits for configured advantage prices before entering.'
+    : 'The bot waits for price to pull back below the UTC daily open, then enters long positions only at configured advantage levels.';
+  const moveLabel = isShortBias ? 'Move from open' : isBothBias ? 'Largest move from open' : 'Move from open';
   const strategyPanelCopy = isShortBias
     ? 'Each rung unlocks when the live rally reaches the configured threshold.'
     : isBothBias
@@ -198,17 +198,17 @@ export default function Overview({ status }: OverviewProps) {
     <div className="overview-shell">
       <section className="hero">
         <div className="hero-copy">
-          <span className="hero-kicker">UTC Daily Open Ladder</span>
+          <span className="hero-kicker">Advantage Price Entry</span>
           <h2>{headline}</h2>
           <p>{description}</p>
           <div className="hero-actions">
             {!status.running ? (
               <button className="button button-primary" onClick={handleStart} disabled={loading}>
-                Start Monitoring
+                Start Bot
               </button>
             ) : (
               <button className="button button-danger" onClick={handleStop} disabled={loading}>
-                Pause Bot
+                Stop Bot
               </button>
             )}
             <button className="button button-ghost" onClick={handleEmergencyStop} disabled={loading}>
@@ -220,10 +220,10 @@ export default function Overview({ status }: OverviewProps) {
         <div className="hero-aside">
           <div className="mode-stack">
             <div className={`mode-chip ${status.running ? 'live' : 'idle'}`}>
-              {status.running ? 'Monitoring active' : 'Idle'}
+              {status.running ? 'Running' : 'Stopped'}
             </div>
             <div className={`mode-chip ${status.dry_run ? 'warn' : 'accent'}`}>
-              {status.dry_run ? 'Dry run' : status.testnet ? 'Testnet' : 'Mainnet live'}
+              {status.dry_run ? 'Simulation' : status.testnet ? 'Testnet' : 'Mainnet'}
             </div>
           </div>
           <div className="hero-metric">
@@ -231,12 +231,12 @@ export default function Overview({ status }: OverviewProps) {
             <strong>{currentMove.toFixed(2)}%</strong>
           </div>
           <div className="hero-metric">
-            <span>Next trigger gap</span>
+            <span>Next entry distance</span>
             <strong>{thresholdGap !== null ? `${thresholdGap.toFixed(2)}%` : 'All levels used'}</strong>
           </div>
           <div className="hero-metric">
-            <span>Hedge posture</span>
-            <strong>{status.close_hedge_with_future ? 'Auto-close with futures' : 'Leave hedge open'}</strong>
+            <span>Hedge handling</span>
+            <strong>{status.close_hedge_with_future ? 'Close with position' : 'Keep hedge open'}</strong>
           </div>
         </div>
       </section>
@@ -246,7 +246,7 @@ export default function Overview({ status }: OverviewProps) {
           <div className="panel">
             <div className="panel-head">
               <div>
-                <h3 className="panel-title">Ladder Readiness</h3>
+                <h3 className="panel-title">Entry Levels</h3>
                 <p className="panel-copy">{strategyPanelCopy}</p>
               </div>
             </div>
@@ -287,10 +287,10 @@ export default function Overview({ status }: OverviewProps) {
 
         <div className="overview-column overview-column-side">
           <div className="panel metrics-panel">
-            <h3 className="panel-title">Live Snapshot</h3>
+            <h3 className="panel-title">Current Status</h3>
             <div className="metric-stack">
               <div className="metric-row">
-                <span>Daily Open</span>
+                <span>Reference Open</span>
                 <strong>{status.daily_open_price ? `$${status.daily_open_price.toFixed(2)}` : 'N/A'}</strong>
               </div>
               {isBothBias && (
@@ -310,15 +310,15 @@ export default function Overview({ status }: OverviewProps) {
                 <strong>{status.current_price ? `${status.symbol} $${status.current_price.toFixed(2)}` : 'N/A'}</strong>
               </div>
               <div className="metric-row">
-                <span>Take Profit</span>
+                <span>Profit Target</span>
                 <strong>{takeProfitLabel} {status.target_profit_pct.toFixed(2)}%</strong>
               </div>
               <div className="metric-row">
-                <span>Active Entries</span>
+                <span>Open Entries</span>
                 <strong>{status.active_position_sets} / {status.max_position_sets}</strong>
               </div>
               <div className="metric-row">
-                <span>Perp Exposure</span>
+                <span>Futures Size</span>
                 <strong>{status.total_exposure.perp_qty.toFixed(3)}</strong>
               </div>
               <div className="metric-row">
@@ -329,7 +329,7 @@ export default function Overview({ status }: OverviewProps) {
           </div>
 
           <div className="panel">
-            <h3 className="panel-title">Strategy Fit</h3>
+            <h3 className="panel-title">Strategy Settings</h3>
             <div className="detail-list">
               <div>
                 <span>Reference price</span>
@@ -360,14 +360,14 @@ export default function Overview({ status }: OverviewProps) {
                 <strong>{status.close_hedge_with_future ? closeBehaviorLabel : leaveBehaviorLabel}</strong>
               </div>
               <div>
-                <span>Account mode</span>
-                <strong>{status.dry_run ? 'Dry run simulation' : status.testnet ? 'Testnet routing' : 'Mainnet execution'}</strong>
+                <span>Account Mode</span>
+                <strong>{status.dry_run ? 'Simulation' : status.testnet ? 'Testnet' : 'Mainnet'}</strong>
               </div>
             </div>
           </div>
 
           <div className="panel">
-            <h3 className="panel-title">Performance Pulse</h3>
+            <h3 className="panel-title">Performance</h3>
             <div className="detail-list">
               <div>
                 <span>Total PnL</span>

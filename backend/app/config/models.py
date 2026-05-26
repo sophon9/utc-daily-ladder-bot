@@ -32,7 +32,8 @@ class HedgeConfig(BaseModel):
 class BotConfig(BaseModel):
     """Main configuration for the daily open ladder bot."""
 
-    bot_name: str = Field(default="Daily Ladder Bot", description="Bot name for identification")
+    bot_name: str = Field(default="Advantage Price Bot", description="Bot name for identification")
+    account_name: str = Field(default="Primary Account", description="Account display name for identification")
     long_symbol: str = Field(default="ETHUSDT", description="Perpetual symbol used for long ladder entries")
     short_symbol: str = Field(default="ETHPERP", description="Perpetual symbol used for short ladder entries")
     bias: Literal["long", "short", "both", "off"] = Field(
@@ -96,7 +97,8 @@ class BotConfig(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "bot_name": "Daily Ladder Bot",
+                "bot_name": "Advantage Price Bot",
+                "account_name": "Primary Account",
                 "long_symbol": "ETHUSDT",
                 "short_symbol": "ETHPERP",
                 "bias": "both",

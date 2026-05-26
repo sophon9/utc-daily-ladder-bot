@@ -7,6 +7,7 @@ export interface BotStatus {
   dry_run: boolean;
   testnet: boolean;
   bot_name?: string;
+  account_name?: string;
   equity?: number;
   emergency_stop: {
     stopped: boolean;
@@ -89,6 +90,7 @@ export interface HedgeConfig {
 
 export interface BotConfig {
   bot_name: string;
+  account_name: string;
   long_symbol: string;
   short_symbol: string;
   bias: 'long' | 'short' | 'both' | 'off';

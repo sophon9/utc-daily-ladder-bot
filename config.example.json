@@ -1,5 +1,6 @@
 {
-  "bot_name": "Daily Ladder Bot",
+  "bot_name": "Advantage Price Bot",
+  "account_name": "Primary Account",
   "symbol": "ETHUSDT",
   "bias": "long",
   "timeframe": "5m",

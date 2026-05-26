@@ -24,12 +24,12 @@ if [ -f "$PID_FILE" ]; then
 fi
 
 # Fallback: kill by port
-PIDS=$(lsof -ti :3010 2>/dev/null)
+PIDS=$(lsof -ti :3030 2>/dev/null)
 if [ -n "$PIDS" ]; then
-    echo "  Killing remaining process(es) on port 3010: $PIDS"
+    echo "  Killing remaining process(es) on port 3030: $PIDS"
     kill $PIDS 2>/dev/null
     sleep 2
-    PIDS=$(lsof -ti :3010 2>/dev/null)
+    PIDS=$(lsof -ti :3030 2>/dev/null)
     if [ -n "$PIDS" ]; then
         echo "  Force killing: $PIDS"
         kill -9 $PIDS 2>/dev/null

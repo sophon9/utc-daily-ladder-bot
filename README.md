@@ -1,4 +1,4 @@
-# Daily Ladder Bot for Bybit
+# Advantage Price Bot for Bybit
 
 This app monitors the current UTC trading day open and opens a new long futures position when price drops by configured ladder percentages such as `x`, `y`, and `z`.
 
@@ -38,5 +38,7 @@ cp config.example.json config.json
 ./setup.sh
 ./run_all.sh
 ```
+
+Backend runs on `8030`, frontend runs on `3030`.
 
 Backend lives in `backend/` and frontend lives in `frontend/`.

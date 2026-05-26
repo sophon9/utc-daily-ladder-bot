@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useWebSocket } from './hooks/useBot';
 import Overview from './components/Overview';
 import Positions from './components/Positions';
@@ -7,37 +7,66 @@ import Logs from './components/Logs';
 import './styles/app.css';
 
 type TabType = 'overview' | 'positions' | 'config' | 'logs';
+type ThemeType = 'light' | 'dark';
+
+const THEME_STORAGE_KEY = 'advantage-price-theme';
+
+function getInitialTheme(): ThemeType {
+  const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+  if (storedTheme === 'light' || storedTheme === 'dark') {
+    return storedTheme;
+  }
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
 
 function App() {
   const { status, positions, connected } = useWebSocket();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [theme, setTheme] = useState<ThemeType>(getInitialTheme);
+  const botName = status?.bot_name?.trim() || 'Advantage Price Bot';
+  const accountName = status?.account_name?.trim() || 'Primary Account';
+  const nextTheme = theme === 'dark' ? 'light' : 'dark';
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
 
   const tabs: Array<{ id: TabType; label: string; badge?: string | number | null }> = [
-    { id: 'overview', label: 'Mission Control' },
-    { id: 'positions', label: 'Entries', badge: status && status.active_position_sets > 0 ? status.active_position_sets : null },
-    { id: 'config', label: 'Strategy Setup' },
-    { id: 'logs', label: 'Execution Log' },
+    { id: 'overview', label: 'Overview' },
+    { id: 'positions', label: 'Positions', badge: status && status.active_position_sets > 0 ? status.active_position_sets : null },
+    { id: 'config', label: 'Settings' },
+    { id: 'logs', label: 'Logs' },
   ];
 
   return (
     <div className="app-shell">
       <header className="topbar">
         <div className="brand-block">
-          <div className="brand-mark">DL</div>
+          <div className="brand-mark">AP</div>
           <div>
-            <div className="brand-kicker">Bybit Ladder Strategy</div>
-            <h1>Daily Ladder Bot</h1>
+            <div className="brand-kicker">{accountName}</div>
+            <h1>{botName}</h1>
           </div>
         </div>
 
         <div className="topbar-meta">
+          <button
+            className="theme-toggle"
+            type="button"
+            onClick={() => setTheme(nextTheme)}
+            aria-label={`Switch to ${nextTheme} theme`}
+          >
+            <span className="theme-toggle-icon">{theme === 'dark' ? 'D' : 'L'}</span>
+            {theme === 'dark' ? 'Dark' : 'Light'}
+          </button>
           <div className={`connection-pill ${connected ? 'online' : 'offline'}`}>
             <span className="status-dot"></span>
-            {connected ? 'Realtime feed connected' : 'Realtime feed reconnecting'}
+            {connected ? 'Live data connected' : 'Reconnecting'}
           </div>
           {status && (
             <div className="account-pill">
-              {status.dry_run ? 'Dry run mode' : status.testnet ? 'Testnet execution' : 'Mainnet execution'}
+              {status.dry_run ? 'Simulation' : status.testnet ? 'Testnet' : 'Mainnet'}
             </div>
           )}
         </div>

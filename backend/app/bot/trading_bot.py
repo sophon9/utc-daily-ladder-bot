@@ -629,6 +629,7 @@ class TradingBot:
 
         return {
             "bot_name": self.config.bot_name,
+            "account_name": self.config.account_name,
             "symbol": display_symbol,
             "long_symbol": self.config.long_symbol,
             "short_symbol": self.config.short_symbol,

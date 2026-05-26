@@ -331,8 +331,22 @@ export default function Config() {
                 className="form-input"
                 value={config.bot_name}
                 onChange={(e) => updateField('bot_name', e.target.value)}
-                placeholder="Daily Ladder Bot"
+                placeholder="Advantage Price Bot"
               />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Account Name</label>
+              <input
+                type="text"
+                className="form-input"
+                value={config.account_name}
+                onChange={(e) => updateField('account_name', e.target.value)}
+                placeholder="Primary Account"
+              />
+              <small className="text-muted" style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                Display-only label shown at the top of the dashboard.
+              </small>
             </div>
 
             <div className="form-group">

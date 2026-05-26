@@ -35,18 +35,18 @@ echo "Starting Daily Ladder Bot Frontend (background)..."
 echo "====================================="
 echo ""
 echo "Access URLs:"
-echo "  Local:      http://localhost:3010"
+echo "  Local:      http://localhost:3030"
 if [ -n "$LOCAL_IP" ]; then
-    echo "  Network:    http://$LOCAL_IP:3010"
-    echo "  Access from any device on your LAN using: http://$LOCAL_IP:3010"
+    echo "  Network:    http://$LOCAL_IP:3030"
+    echo "  Access from any device on your LAN using: http://$LOCAL_IP:3030"
 fi
 echo ""
-echo "Backend should be running on http://localhost:8010"
+echo "Backend should be running on http://localhost:8030"
 echo "Logs:    $LOG_FILE"
 echo "To stop: ./stop_frontend.sh"
 echo ""
 
-nohup setsid npm --prefix "$PROJECT_ROOT/frontend" run dev -- --host 0.0.0.0 --port 3010 >> "$LOG_FILE" 2>&1 < /dev/null &
+nohup setsid npm --prefix "$PROJECT_ROOT/frontend" run dev -- --host 0.0.0.0 --port 3030 >> "$LOG_FILE" 2>&1 < /dev/null &
 echo $! > "$PID_FILE"
 
 FRONTEND_PID=$(cat "$PID_FILE")
@@ -59,7 +59,7 @@ if ! kill -0 "$FRONTEND_PID" 2>/dev/null; then
     exit 1
 fi
 
-if ! curl -fsS "http://127.0.0.1:3010/" >/dev/null 2>&1; then
+if ! curl -fsS "http://127.0.0.1:3030/" >/dev/null 2>&1; then
     echo "Frontend process started but HTTP endpoint did not become ready. Recent log output:"
     tail -n 50 "$LOG_FILE" 2>/dev/null || true
     exit 1

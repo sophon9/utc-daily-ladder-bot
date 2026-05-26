@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
     """Application lifespan events."""
     global bot, client, database
 
-    logger.info("Starting Daily Ladder Bot...")
+    logger.info("Starting Advantage Price Bot...")
 
     # Initialize database
     database = get_database()
@@ -87,7 +87,7 @@ async def lifespan(app: FastAPI):
     # Set bot instance for API
     set_bot_instance(bot)
 
-    logger.info("Daily Ladder Bot initialized successfully")
+    logger.info("Advantage Price Bot initialized successfully")
     logger.info(f"DRY_RUN: {config.dry_run}, TESTNET: {config.use_testnet}, BIAS: {config.bias}")
 
     # Restore previous running state (auto-starts if the bot was running before restart)
@@ -97,7 +97,7 @@ async def lifespan(app: FastAPI):
 
     # Cleanup — pass save_state=False so we don't overwrite the user-set state.
     # This means a crash/SIGTERM restart will auto-resume if the bot was running.
-    logger.info("Shutting down Daily Ladder Bot...")
+    logger.info("Shutting down Advantage Price Bot...")
 
     if bot and bot.running:
         await bot.stop(save_state=False)
@@ -113,7 +113,7 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="Daily Ladder Bot API",
+    title="Advantage Price Bot API",
     description="Automated trading bot for UTC daily-open ladder entries with mirrored futures and option hedges",
     version="1.0.0",
     lifespan=lifespan,
@@ -144,7 +144,7 @@ async def ws_endpoint(websocket: WebSocket):
 async def root():
     """Root endpoint."""
     return {
-        "name": "Daily Ladder Bot",
+        "name": "Advantage Price Bot",
         "version": "1.0.0",
         "status": "running" if bot and bot.running else "stopped",
     }
@@ -155,7 +155,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
-        port=8000,
+        port=8030,
         reload=False,
         log_level="info",
     )

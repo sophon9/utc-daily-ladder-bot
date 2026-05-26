@@ -60,11 +60,11 @@ echo "Starting Daily Ladder Bot Backend (background)..."
 echo "======================================="
 echo ""
 echo "Access URLs:"
-echo "  Local:      http://localhost:8010"
+echo "  Local:      http://localhost:8030"
 if [ -n "$LOCAL_IP" ]; then
-    echo "  Network:    http://$LOCAL_IP:8010"
+    echo "  Network:    http://$LOCAL_IP:8030"
 fi
-echo "  API docs:   http://localhost:8010/docs"
+echo "  API docs:   http://localhost:8030/docs"
 echo ""
 echo "Logs:    $LOG_FILE"
 echo "To stop: ./stop_backend.sh"
@@ -74,7 +74,7 @@ nohup setsid "$PYTHON_BIN" -m uvicorn \
     --app-dir "$PROJECT_ROOT/backend" \
     app.main:app \
     --host 0.0.0.0 \
-    --port 8010 \
+    --port 8030 \
     >> "$LOG_FILE" 2>&1 < /dev/null &
 echo $! > "$PID_FILE"
 
@@ -88,7 +88,7 @@ if ! kill -0 "$BACKEND_PID" 2>/dev/null; then
     exit 1
 fi
 
-if ! curl -fsS "http://127.0.0.1:8010/" >/dev/null 2>&1; then
+if ! curl -fsS "http://127.0.0.1:8030/" >/dev/null 2>&1; then
     echo "Backend process started but HTTP endpoint did not become ready. Recent log output:"
     tail -n 50 "$LOG_FILE" 2>/dev/null || true
     exit 1
