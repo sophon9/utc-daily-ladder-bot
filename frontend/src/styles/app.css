@@ -191,6 +191,13 @@ button {
   font-size: 0.92rem;
 }
 
+.connection-pill.online {
+  border-color: color-mix(in srgb, var(--accent-positive) 38%, var(--line-soft));
+  background: color-mix(in srgb, var(--accent-positive) 12%, var(--bg-overlay));
+  color: var(--accent-positive);
+  font-weight: 800;
+}
+
 .connection-pill.online,
 .mode-chip.live,
 .mode-chip.accent,
@@ -233,6 +240,7 @@ button {
 .status-dot {
   width: 8px;
   height: 8px;
+  flex: 0 0 auto;
   border-radius: 999px;
   background: currentColor;
   box-shadow: 0 0 0 5px color-mix(in srgb, currentColor 14%, transparent);
@@ -277,6 +285,17 @@ button {
   background: var(--text-primary);
   color: var(--bg-panel);
   box-shadow: 0 10px 20px rgba(30, 33, 28, 0.12);
+}
+
+.metric-row-stack {
+  display: grid;
+  gap: 4px;
+}
+
+.metric-note {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.35;
 }
 
 .tab-badge {
@@ -359,9 +378,11 @@ button {
 
 .hero-actions {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
   margin-top: 22px;
+  max-width: 620px;
 }
 
 .button {
@@ -397,6 +418,24 @@ button {
   background: var(--accent-danger);
 }
 
+.button-secondary-muted,
+.button-danger-muted {
+  border: 1px solid var(--line-soft);
+  background: color-mix(in srgb, var(--bg-soft) 72%, transparent);
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.button-danger-muted {
+  color: var(--accent-danger);
+}
+
+.button-secondary-muted:hover,
+.button-danger-muted:hover {
+  border-color: var(--line-strong);
+  background: var(--bg-soft);
+}
+
 .button-ghost,
 .button.secondary {
   border: 1px solid var(--line-strong);
@@ -410,6 +449,23 @@ button {
   gap: 8px;
 }
 
+.hero-action-primary {
+  min-width: 136px;
+}
+
+.hero-action-spacer {
+  min-width: 136px;
+  min-height: 40px;
+}
+
+.hero-secondary-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
 .hero-aside {
   display: grid;
   align-content: start;
@@ -420,6 +476,13 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.bot-online-chip.live {
+  border-color: color-mix(in srgb, var(--accent-positive) 42%, var(--line-soft));
+  background: color-mix(in srgb, var(--accent-positive) 13%, var(--bg-overlay));
+  color: var(--accent-positive);
+  font-weight: 800;
 }
 
 .hero-metric,
@@ -769,6 +832,31 @@ pre {
   .hero-copy h2 {
     max-width: none;
     font-size: 2rem;
+  }
+
+  .hero-actions {
+    align-items: stretch;
+    flex-direction: column;
+    max-width: none;
+  }
+
+  .hero-action-primary,
+  .hero-action-spacer,
+  .hero-secondary-actions {
+    width: 100%;
+  }
+
+  .hero-action-spacer {
+    display: none;
+  }
+
+  .hero-secondary-actions {
+    justify-content: stretch;
+    margin-left: 0;
+  }
+
+  .hero-secondary-actions .button {
+    flex: 1 1 150px;
   }
 
   .brand-block {

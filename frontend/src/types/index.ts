@@ -9,6 +9,12 @@ export interface BotStatus {
   bot_name?: string;
   account_name?: string;
   equity?: number;
+  account_connection?: {
+    configured: boolean;
+    connected: boolean;
+    status: 'not_configured' | 'connected' | 'empty_account' | 'error';
+    message: string;
+  };
   emergency_stop: {
     stopped: boolean;
     reason?: string;

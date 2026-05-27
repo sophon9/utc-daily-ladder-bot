@@ -4,8 +4,9 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+PORT=8030
 
-HOME_VENV_PYTHON="$HOME/.venvs/ema_bot/bin/python"
+HOME_VENV_PYTHON="$HOME/.venvs/utc_daily_ladder_bot/bin/python"
 LOCAL_VENV_PYTHON="$PROJECT_ROOT/backend/venv/bin/python"
 
 # Prefer a stable home-directory virtualenv so background launches do not
@@ -42,15 +43,46 @@ mkdir -p "$PROJECT_ROOT/logs" "$PROJECT_ROOT/data"
 PID_FILE="$PROJECT_ROOT/logs/backend.pid"
 LOG_FILE="$PROJECT_ROOT/logs/backend.log"
 
+is_pid_running() {
+    local pid="$1"
+    kill -0 "$pid" 2>/dev/null
+}
+
+get_listen_pids() {
+    local port="$1"
+    lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true
+}
+
+wait_for_http() {
+    local url="$1"
+    local attempts="${2:-20}"
+    local delay="${3:-1}"
+    local i
+    for ((i = 1; i <= attempts; i++)); do
+        if curl -fsS "$url" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep "$delay"
+    done
+    return 1
+}
+
 # Check if already running
 if [ -f "$PID_FILE" ]; then
     OLD_PID=$(cat "$PID_FILE")
-    if kill -0 "$OLD_PID" 2>/dev/null; then
+    if is_pid_running "$OLD_PID"; then
         echo "Backend is already running (PID $OLD_PID)"
         echo "Run ./stop_backend.sh to stop it first"
         exit 1
     fi
     rm -f "$PID_FILE"
+fi
+
+EXISTING_PIDS="$(get_listen_pids "$PORT")"
+if [ -n "$EXISTING_PIDS" ]; then
+    echo "Backend is already listening on port $PORT: $EXISTING_PIDS"
+    echo "Run ./stop_backend.sh to stop it first"
+    exit 1
 fi
 
 # Get local IP address
@@ -60,11 +92,11 @@ echo "Starting Daily Ladder Bot Backend (background)..."
 echo "======================================="
 echo ""
 echo "Access URLs:"
-echo "  Local:      http://localhost:8030"
+echo "  Local:      http://localhost:$PORT"
 if [ -n "$LOCAL_IP" ]; then
-    echo "  Network:    http://$LOCAL_IP:8030"
+    echo "  Network:    http://$LOCAL_IP:$PORT"
 fi
-echo "  API docs:   http://localhost:8030/docs"
+echo "  API docs:   http://localhost:$PORT/docs"
 echo ""
 echo "Logs:    $LOG_FILE"
 echo "To stop: ./stop_backend.sh"
@@ -74,21 +106,21 @@ nohup setsid "$PYTHON_BIN" -m uvicorn \
     --app-dir "$PROJECT_ROOT/backend" \
     app.main:app \
     --host 0.0.0.0 \
-    --port 8030 \
+    --port "$PORT" \
     >> "$LOG_FILE" 2>&1 < /dev/null &
 echo $! > "$PID_FILE"
 
 BACKEND_PID=$(cat "$PID_FILE")
-sleep 3
+sleep 1
 
-if ! kill -0 "$BACKEND_PID" 2>/dev/null; then
+if ! is_pid_running "$BACKEND_PID"; then
     echo "Backend failed to stay running. Recent log output:"
     tail -n 50 "$LOG_FILE" 2>/dev/null || true
     rm -f "$PID_FILE"
     exit 1
 fi
 
-if ! curl -fsS "http://127.0.0.1:8030/" >/dev/null 2>&1; then
+if ! wait_for_http "http://127.0.0.1:$PORT/" 20 1; then
     echo "Backend process started but HTTP endpoint did not become ready. Recent log output:"
     tail -n 50 "$LOG_FILE" 2>/dev/null || true
     exit 1

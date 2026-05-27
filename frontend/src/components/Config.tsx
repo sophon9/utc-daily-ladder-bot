@@ -61,11 +61,7 @@ export default function Config() {
 
   const updateField = (field: keyof BotConfig, value: any) => {
     if (!config) return;
-    const nextConfig = { ...config, [field]: value };
-    if (field === 'bias' && (value === 'short' || value === 'both') && config.short_symbol === 'ETHUSDT') {
-      nextConfig.short_symbol = 'ETHPERP';
-    }
-    setConfig(nextConfig);
+    setConfig({ ...config, [field]: value });
   };
 
   const updateHedgeField = (field: keyof HedgeConfig, value: any) => {

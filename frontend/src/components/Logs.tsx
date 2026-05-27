@@ -13,7 +13,7 @@ export default function Logs() {
   const [logs, setLogs] = React.useState<LogResponse | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
-  const [lineCount, setLineCount] = React.useState(200);
+  const [lineCount, setLineCount] = React.useState(50);
 
   const fetchLogs = React.useCallback(async (showLoading: boolean) => {
     if (showLoading) {
@@ -80,6 +80,7 @@ export default function Logs() {
               padding: '8px 10px',
             }}
           >
+            <option value={50}>50</option>
             <option value={100}>100</option>
             <option value={200}>200</option>
             <option value={500}>500</option>

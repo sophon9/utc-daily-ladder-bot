@@ -190,6 +190,12 @@ export default function Overview({ status }: OverviewProps) {
   const entryScheduleLabel = isShortBias ? 'Rally schedule' : 'Entry schedule';
   const closeBehaviorLabel = isShortBias ? 'Close call with futures' : 'Close put with futures';
   const leaveBehaviorLabel = isShortBias ? 'Leave call after exit' : 'Leave put after exit';
+  const accountConnection = status.account_connection;
+  const accountConnectionLabel = accountConnection?.connected
+    ? 'Connected'
+    : accountConnection?.configured
+    ? 'Connection Failed'
+    : 'Not Configured';
   const hedgeSelectionLabel = config?.hedge_config.enabled
     ? `${config.hedge_config.hedge_otm_pct}% OTM, min ${config.hedge_config.hedge_dte_min_days} DTE`
     : 'Disabled';
@@ -203,24 +209,30 @@ export default function Overview({ status }: OverviewProps) {
           <p>{description}</p>
           <div className="hero-actions">
             {!status.running ? (
-              <button className="button button-primary" onClick={handleStart} disabled={loading}>
+              <button className="button button-primary hero-action-primary" onClick={handleStart} disabled={loading}>
                 Start Bot
               </button>
             ) : (
-              <button className="button button-danger" onClick={handleStop} disabled={loading}>
-                Stop Bot
-              </button>
+              <div className="hero-action-spacer" aria-hidden="true"></div>
             )}
-            <button className="button button-ghost" onClick={handleEmergencyStop} disabled={loading}>
-              Emergency Stop
-            </button>
+            <div className="hero-secondary-actions">
+              {status.running && (
+                <button className="button button-secondary-muted" onClick={handleStop} disabled={loading}>
+                  Stop Bot
+                </button>
+              )}
+              <button className="button button-danger-muted" onClick={handleEmergencyStop} disabled={loading}>
+                Emergency Stop
+              </button>
+            </div>
           </div>
         </div>
 
         <div className="hero-aside">
           <div className="mode-stack">
-            <div className={`mode-chip ${status.running ? 'live' : 'idle'}`}>
-              {status.running ? 'Running' : 'Stopped'}
+            <div className={`mode-chip bot-online-chip ${status.running ? 'live' : 'idle'}`}>
+              <span className="status-dot"></span>
+              {status.running ? 'Bot Online' : 'Bot Stopped'}
             </div>
             <div className={`mode-chip ${status.dry_run ? 'warn' : 'accent'}`}>
               {status.dry_run ? 'Simulation' : status.testnet ? 'Testnet' : 'Mainnet'}
@@ -308,6 +320,15 @@ export default function Overview({ status }: OverviewProps) {
               <div className="metric-row">
                 <span>Current Price</span>
                 <strong>{status.current_price ? `${status.symbol} $${status.current_price.toFixed(2)}` : 'N/A'}</strong>
+              </div>
+              <div className="metric-row metric-row-stack">
+                <span>Account Connection</span>
+                <strong className={accountConnection?.connected ? 'text-success' : 'text-error'}>
+                  {accountConnectionLabel}
+                </strong>
+                {accountConnection?.message && (
+                  <small className="metric-note">{accountConnection.message}</small>
+                )}
               </div>
               <div className="metric-row">
                 <span>Profit Target</span>

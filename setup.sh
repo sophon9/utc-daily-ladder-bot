@@ -1,12 +1,12 @@
 #!/bin/bash
-# Setup script for EMA Trading Bot
+# Setup script for UTC Daily Ladder Bot
 
 cd "$(dirname "$0")"
 
-VENV_DIR="$HOME/.venvs/ema_bot"
+VENV_DIR="$HOME/.venvs/utc_daily_ladder_bot"
 
 echo "========================================="
-echo "  EMA Trading Bot - Setup Script"
+echo "  UTC Daily Ladder Bot - Setup Script"
 echo "========================================="
 echo ""
 
@@ -97,17 +97,13 @@ echo ""
 echo "2. Review and adjust config.json:"
 echo "   nano config.json"
 echo ""
-echo "3. Run smoke test (optional but recommended):"
-echo "   source $VENV_DIR/bin/activate"
-echo "   python scripts/smoke_test.py"
-echo ""
-echo "4. Start the backend (Terminal 1):"
+echo "3. Start the backend:"
 echo "   ./run_backend.sh"
 echo ""
-echo "5. Start the frontend (Terminal 2):"
+echo "4. Start the frontend:"
 echo "   ./run_frontend.sh"
 echo ""
-echo "6. Open browser to http://localhost:3030"
+echo "5. Open browser to http://localhost:3030"
 echo ""
 echo "⚠️  IMPORTANT: Start with testnet and dry_run mode!"
 echo ""

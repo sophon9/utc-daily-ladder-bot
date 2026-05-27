@@ -37,6 +37,7 @@ def get_bot() -> TradingBot:
 async def get_status(bot: TradingBot = Depends(get_bot)):
     """Get bot status."""
     status = bot.get_status()
+    status["account_connection"] = await bot.get_account_connection_status()
 
     # Add equity if not in dry run mode
     equity = await bot.get_equity()
@@ -116,6 +117,9 @@ async def update_config(update: ConfigUpdate):
 
         # Save
         config_loader.save(new_config)
+
+        if _bot_instance is not None:
+            await _bot_instance._reload_config()
 
         return {
             "status": "success",
@@ -327,7 +331,7 @@ async def get_equity_history(limit: int = 240, bot: TradingBot = Depends(get_bot
 
 
 @router.get("/logs")
-async def get_logs(lines: int = 200):
+async def get_logs(lines: int = 50):
     """Get recent bot logs."""
     lines = max(10, min(lines, 1000))
 

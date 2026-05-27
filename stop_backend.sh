@@ -6,6 +6,27 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+PORT=8030
+
+kill_pid_group() {
+    local pid="$1"
+    if kill -0 "$pid" 2>/dev/null; then
+        kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+    fi
+}
+
+wait_for_pid_exit() {
+    local pid="$1"
+    local attempts="${2:-10}"
+    local i
+    for ((i = 1; i <= attempts; i++)); do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            return 0
+        fi
+        sleep 1
+    done
+    return 1
+}
 
 echo "Stopping Daily Ladder Bot Backend..."
 
@@ -14,27 +35,26 @@ PID_FILE="$PROJECT_ROOT/logs/backend.pid"
 if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE")
     if kill -0 "$PID" 2>/dev/null; then
-        echo "  Killing backend process (PID $PID)"
-        kill "$PID" 2>/dev/null
-        sleep 2
-        if kill -0 "$PID" 2>/dev/null; then
+        echo "  Killing backend process group (PID $PID)"
+        kill_pid_group "$PID"
+        if ! wait_for_pid_exit "$PID" 5; then
             echo "  Force killing PID $PID"
-            kill -9 "$PID" 2>/dev/null
+            kill -9 "$PID" 2>/dev/null || true
         fi
     fi
     rm -f "$PID_FILE"
 fi
 
 # Fallback: kill by port
-PIDS=$(lsof -ti :8030 2>/dev/null)
+PIDS=$(lsof -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null || true)
 if [ -n "$PIDS" ]; then
-    echo "  Killing remaining process(es) on port 8030: $PIDS"
-    kill $PIDS 2>/dev/null
+    echo "  Killing remaining process(es) on port $PORT: $PIDS"
+    kill $PIDS 2>/dev/null || true
     sleep 2
-    PIDS=$(lsof -ti :8030 2>/dev/null)
+    PIDS=$(lsof -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null || true)
     if [ -n "$PIDS" ]; then
         echo "  Force killing: $PIDS"
-        kill -9 $PIDS 2>/dev/null
+        kill -9 $PIDS 2>/dev/null || true
     fi
 fi
 

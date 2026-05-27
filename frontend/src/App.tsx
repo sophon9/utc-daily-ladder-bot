@@ -26,6 +26,7 @@ function App() {
   const botName = status?.bot_name?.trim() || 'Advantage Price Bot';
   const accountName = status?.account_name?.trim() || 'Primary Account';
   const nextTheme = theme === 'dark' ? 'light' : 'dark';
+  const botOnline = connected && Boolean(status);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -60,9 +61,9 @@ function App() {
             <span className="theme-toggle-icon">{theme === 'dark' ? 'D' : 'L'}</span>
             {theme === 'dark' ? 'Dark' : 'Light'}
           </button>
-          <div className={`connection-pill ${connected ? 'online' : 'offline'}`}>
+          <div className={`connection-pill ${botOnline ? 'online' : 'offline'}`}>
             <span className="status-dot"></span>
-            {connected ? 'Live data connected' : 'Reconnecting'}
+            {botOnline ? 'Bot Online' : connected ? 'Loading Bot' : 'Bot Offline'}
           </div>
           {status && (
             <div className="account-pill">

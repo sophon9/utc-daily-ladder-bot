@@ -51,6 +51,10 @@ class TradingBot:
         self._equity_cache_ts: float = 0.0
         self._equity_cache_ttl_seconds: int = 30
         self._equity_lock = asyncio.Lock()
+        self._account_connection_cache: Optional[dict] = None
+        self._account_connection_cache_ts: float = 0.0
+        self._account_connection_cache_ttl_seconds: int = 30
+        self._account_connection_lock = asyncio.Lock()
 
         self._state_file = Path("data/bot_state.json")
         self._daily_open_price: dict[str, float] = {}
@@ -659,6 +663,52 @@ class TradingBot:
             "total_pnl": self.position_manager.get_total_pnl(),
             "total_exposure": self.position_manager.get_total_exposure(),
         }
+
+    async def get_account_connection_status(self) -> dict:
+        """Check whether configured credentials can access the selected account."""
+        if not self.client.api_key or not self.client.api_secret:
+            return {
+                "configured": False,
+                "connected": False,
+                "status": "not_configured",
+                "message": "BYBIT_API_KEY or BYBIT_API_SECRET is missing",
+            }
+
+        now = time.monotonic()
+        if (
+            self._account_connection_cache is not None
+            and (now - self._account_connection_cache_ts) < self._account_connection_cache_ttl_seconds
+        ):
+            return self._account_connection_cache
+
+        async with self._account_connection_lock:
+            now = time.monotonic()
+            if (
+                self._account_connection_cache is not None
+                and (now - self._account_connection_cache_ts) < self._account_connection_cache_ttl_seconds
+            ):
+                return self._account_connection_cache
+
+            try:
+                wallet = await self.client.get_wallet_balance(account_type="UNIFIED")
+                connected = bool(wallet.get("list"))
+                status = {
+                    "configured": True,
+                    "connected": connected,
+                    "status": "connected" if connected else "empty_account",
+                    "message": "Account access verified" if connected else "Wallet response was empty",
+                }
+            except Exception as exc:
+                status = {
+                    "configured": True,
+                    "connected": False,
+                    "status": "error",
+                    "message": str(exc),
+                }
+
+            self._account_connection_cache = status
+            self._account_connection_cache_ts = now
+            return status
 
     async def get_equity(self) -> Optional[float]:
         """Get current equity."""

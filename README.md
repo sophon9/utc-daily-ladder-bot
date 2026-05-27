@@ -2,18 +2,15 @@
 
 This app monitors the current UTC trading day open and opens a new long futures position when price drops by configured ladder percentages such as `x`, `y`, and `z`.
 
-Each entry:
-- opens a `long` perpetual futures position at market
-- optionally opens a `long put` hedge
-- selects the hedge strike as the first available put at least `hedge_otm_pct` below spot
-- requires the hedge expiry to satisfy `hedge_dte_min_days`
-- exits the futures leg when price reaches `target_profit_pct` above its own fill price
-- optionally closes the hedge when the futures leg exits, or leaves it open as `hedge_only`
+The current code supports `long`, `short`, `both`, and `off` bias modes with separate ladder arrays for long and short entries.
 
 ## Core Config
 
-`entry_levels_pct`
-- Drawdown percentages from the UTC `00:00` daily open that trigger entries.
+`long_entry_levels_pct`
+- Drawdown percentages from the UTC `00:00` daily open that trigger long entries.
+
+`short_entry_levels_pct`
+- Rally percentages from the UTC `00:00` daily open that trigger short entries.
 
 `target_profit_pct`
 - Take-profit percent for each futures leg, measured from that leg's own entry price.

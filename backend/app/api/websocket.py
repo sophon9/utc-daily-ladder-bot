@@ -72,6 +72,7 @@ async def websocket_endpoint(websocket: WebSocket, bot):
     try:
         # Send initial status
         status = bot.get_status()
+        status["account_connection"] = await bot.get_account_connection_status()
         equity = await bot.get_equity()
         if equity is not None:
             status["equity"] = equity
@@ -110,6 +111,7 @@ async def websocket_endpoint(websocket: WebSocket, bot):
 
                 elif message.get("type") == "request_status":
                     status = bot.get_status()
+                    status["account_connection"] = await bot.get_account_connection_status()
                     equity = await bot.get_equity()
                     if equity is not None:
                         status["equity"] = equity
@@ -150,6 +152,7 @@ async def send_periodic_updates(websocket: WebSocket, bot):
 
             # Send status update
             status = bot.get_status()
+            status["account_connection"] = await bot.get_account_connection_status()
             equity = await bot.get_equity()
             if equity is not None:
                 status["equity"] = equity

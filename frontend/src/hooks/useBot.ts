@@ -164,7 +164,11 @@ export function useAPI() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ config }),
     });
-    return response.json();
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.detail || 'Failed to update configuration');
+    }
+    return result;
   };
 
   const getEquityHistory = async (limit: number = 240): Promise<EquityHistoryResponse> => {
